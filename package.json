@@ -17,7 +17,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons": "node tools/make-icons.mjs"
+    "icons": "node tools/make-icons.mjs",
+    "docs": "node tools/gen-field-reference.mjs"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",
