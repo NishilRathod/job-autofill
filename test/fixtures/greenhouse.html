@@ -1,0 +1,92 @@
+<!--
+  A Greenhouse-style application form, reconstructed to match the markup shape
+  Greenhouse produces: label-for pairs, snake_case names, and custom questions
+  under generated `job_application_answers_attributes_*` names that carry no
+  meaning of their own.
+
+  No real posting is reproduced; the field set is the one these forms present.
+-->
+<form id="application_form">
+  <h3>Submit your application</h3>
+
+  <label for="first_name">First Name <span class="required">*</span></label>
+  <input type="text" id="first_name" name="job_application[first_name]" autocomplete="given-name" />
+
+  <label for="last_name">Last Name <span class="required">*</span></label>
+  <input type="text" id="last_name" name="job_application[last_name]" autocomplete="family-name" />
+
+  <label for="email">Email <span class="required">*</span></label>
+  <input type="email" id="email" name="job_application[email]" autocomplete="email" />
+
+  <label for="phone">Phone</label>
+  <input type="tel" id="phone" name="job_application[phone]" autocomplete="tel" />
+
+  <label for="resume">Resume/CV <span class="required">*</span></label>
+  <input type="file" id="resume" name="job_application[resume]" />
+
+  <label for="cover_letter">Cover Letter</label>
+  <input type="file" id="cover_letter" name="job_application[cover_letter]" />
+
+  <label for="job_application_location">Location (City)</label>
+  <input type="text" id="job_application_location" name="job_application[location]" />
+
+  <h4>Links</h4>
+  <label for="urls_LinkedIn">LinkedIn Profile</label>
+  <input type="text" id="urls_LinkedIn" name="job_application[urls][LinkedIn]" />
+
+  <label for="urls_GitHub">GitHub URL</label>
+  <input type="text" id="urls_GitHub" name="job_application[urls][GitHub]" />
+
+  <label for="urls_Portfolio">Portfolio</label>
+  <input type="text" id="urls_Portfolio" name="job_application[urls][Portfolio]" />
+
+  <h4>Additional information</h4>
+
+  <label for="q_auth">Are you legally authorized to work in the United States?</label>
+  <select id="q_auth" name="job_application_answers_attributes[0][boolean_value]">
+    <option value=""></option>
+    <option value="1">Yes</option>
+    <option value="0">No</option>
+  </select>
+
+  <label for="q_sponsor">Will you now or in the future require sponsorship for employment visa status?</label>
+  <select id="q_sponsor" name="job_application_answers_attributes[1][boolean_value]">
+    <option value=""></option>
+    <option value="1">Yes</option>
+    <option value="0">No</option>
+  </select>
+
+  <label for="q_source">How did you hear about this job?</label>
+  <input type="text" id="q_source" name="job_application_answers_attributes[2][text_value]" />
+
+  <!-- A genuinely company-specific question. Nothing in the profile answers
+       this, so it must be reported as unmatched rather than guessed at. -->
+  <label for="q_custom">What is the most interesting system you have debugged?</label>
+  <textarea id="q_custom" name="job_application_answers_attributes[3][text_value]"></textarea>
+
+  <h4>U.S. Equal Employment Opportunity information (Completion is voluntary)</h4>
+
+  <label for="gender">Gender</label>
+  <select id="gender" name="job_application[demographic_answers][gender]">
+    <option value=""></option>
+    <option>Male</option>
+    <option>Female</option>
+    <option>Decline To Self Identify</option>
+  </select>
+
+  <label for="hispanic_ethnicity">Are you Hispanic/Latino?</label>
+  <select id="hispanic_ethnicity" name="job_application[demographic_answers][hispanic]">
+    <option value=""></option>
+    <option>Yes</option>
+    <option>No</option>
+    <option>Decline To Self Identify</option>
+  </select>
+
+  <label for="veteran_status">Veteran Status</label>
+  <select id="veteran_status" name="job_application[demographic_answers][veteran]">
+    <option value=""></option>
+    <option>I am not a protected veteran</option>
+    <option>I identify as one or more of the classifications of a protected veteran</option>
+    <option>I don't wish to answer</option>
+  </select>
+</form>

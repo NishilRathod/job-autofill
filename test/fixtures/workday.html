@@ -1,0 +1,96 @@
+<!--
+  A Workday-style form, reconstructed to reproduce the two things that make
+  Workday hard rather than any real posting:
+
+    1. Labels are sibling <div>s with no `for` attribute and no aria-labelledby.
+       A collector that only understands <label for> sees an unlabelled form.
+    2. Dropdowns are <button aria-haspopup="listbox">, not <select>. A collector
+       that only queries input/select/textarea misses them entirely.
+
+  Also covers repeated employment blocks and an education block whose date
+  fields carry labels identical to the employment ones.
+-->
+<div data-automation-id="applicationPage">
+  <h2>My Information</h2>
+
+  <div class="field">
+    <div class="label">First Name</div>
+    <input id="input-1" type="text" data-automation-id="legalNameSection_firstName" />
+  </div>
+
+  <div class="field">
+    <div class="label">Last Name</div>
+    <input id="input-2" type="text" data-automation-id="legalNameSection_lastName" />
+  </div>
+
+  <div class="field">
+    <div class="label">Email Address</div>
+    <input id="input-3" type="text" data-automation-id="email" />
+  </div>
+
+  <div class="field">
+    <div class="label">Phone Number</div>
+    <input id="input-4" type="text" data-automation-id="phone-number" />
+  </div>
+
+  <div class="field">
+    <div class="label">Country</div>
+    <button id="country-button" aria-haspopup="listbox" aria-controls="country-list" aria-expanded="false">
+      Select One
+    </button>
+    <div id="country-list" role="listbox">
+      <div role="option">United States</div>
+      <div role="option">United Kingdom</div>
+      <div role="option">Canada</div>
+    </div>
+  </div>
+
+  <h2>Work Experience</h2>
+
+  <section class="entry">
+    <div class="field">
+      <div class="label">Job Title</div>
+      <input id="work-title" type="text" data-automation-id="jobTitle" />
+    </div>
+    <div class="field">
+      <div class="label">Company</div>
+      <input id="work-company" type="text" data-automation-id="company" />
+    </div>
+    <div class="field">
+      <div class="label">From</div>
+      <input id="work-start" type="text" placeholder="MM/YYYY" data-automation-id="startDate" />
+    </div>
+    <div class="field">
+      <div class="label">To</div>
+      <input id="work-end" type="text" placeholder="MM/YYYY" data-automation-id="endDate" />
+    </div>
+  </section>
+
+  <section class="entry">
+    <div class="field">
+      <div class="label">Job Title</div>
+      <input id="work-title-2" type="text" data-automation-id="jobTitle" />
+    </div>
+    <div class="field">
+      <div class="label">Company</div>
+      <input id="work-company-2" type="text" data-automation-id="company" />
+    </div>
+  </section>
+
+  <h2>Education</h2>
+
+  <section class="entry">
+    <div class="field">
+      <div class="label">School or University</div>
+      <input id="edu-school" type="text" data-automation-id="school" />
+    </div>
+    <div class="field">
+      <div class="label">Field of Study</div>
+      <input id="edu-field" type="text" data-automation-id="fieldOfStudy" />
+    </div>
+    <div class="field">
+      <div class="label">From</div>
+      <input id="edu-start" type="text" placeholder="MM/YYYY" data-automation-id="startDate" />
+    </div>
+  </section>
+</div>
