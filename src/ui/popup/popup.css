@@ -1,41 +1,257 @@
-/* Popup-specific layout. Shared tokens live in ../shared/base.css. */
+/**
+ * Popup layout. Shared tokens live in ../shared/base.css.
+ *
+ * The popup is 360px of vertical space in which someone decides whether to let
+ * software type into a job application. So the preview list is the hero: it
+ * gets the room, and everything else stays out of its way.
+ */
 
 .popup {
-  /* Chrome sizes the popup to its content, up to 800x600. A fixed width keeps
-     the layout stable while the body swaps between scanning, preview, and
-     result states. */
-  width: 340px;
-  padding: 16px;
+  inline-size: 360px;
   display: grid;
-  gap: var(--jf-gap);
+  gap: 0;
 }
+
+/* --- Header --------------------------------------------------------------- */
 
 .popup__header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--jf-border);
 }
 
-.popup__header h1 {
-  font-size: 16px;
+.popup__name {
+  font-weight: 660;
+  letter-spacing: -0.02em;
 }
 
-.popup__tagline {
-  margin: 0;
-  font-size: 12px;
+.popup__gear {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 550;
+  padding: 3px 8px;
+  color: var(--jf-text-soft);
+  background: none;
+  border: 1px solid var(--jf-border);
+  border-radius: 999px;
+  cursor: pointer;
 }
+
+.popup__gear:hover {
+  color: var(--jf-accent);
+  border-color: var(--jf-accent);
+}
+
+.popup__site {
+  margin-inline-start: auto;
+  max-inline-size: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Body ----------------------------------------------------------------- */
 
 .popup__body {
-  background: var(--jf-surface);
+  max-block-size: 380px;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.state {
+  display: grid;
+  gap: 8px;
+  padding: 18px 4px;
+  text-align: center;
+}
+
+.state__title {
+  font-weight: 600;
+}
+
+.state__detail {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--jf-text-soft);
+}
+
+.state--error .state__title {
+  color: var(--jf-danger);
+}
+
+/* --- Preview list --------------------------------------------------------- */
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-end: 10px;
+}
+
+.summary__count {
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+.group + .group {
+  margin-block-start: 14px;
+}
+
+.group__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-block-end: 6px;
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--jf-text-faint);
+}
+
+.rows {
+  display: grid;
+  gap: 1px;
+  background: var(--jf-border);
   border: 1px solid var(--jf-border);
   border-radius: var(--jf-radius);
-  padding: 12px;
+  overflow: hidden;
 }
 
-.popup__body p {
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 9px;
+  padding: 8px 10px;
+  background: var(--jf-panel);
+  text-align: start;
+  font: inherit;
+  border: 0;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--jf-sunken);
+}
+
+.row__check {
+  grid-row: 1 / 3;
+  align-self: center;
+  inline-size: 15px;
+  block-size: 15px;
+  accent-color: var(--jf-accent);
+  cursor: pointer;
+}
+
+.row__label {
+  font-size: 12.5px;
+  color: var(--jf-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The value is what the user is actually checking, so it gets the emphasis
+   and is the only thing allowed to wrap. */
+.row__value {
+  font-size: 13px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.row--muted .row__value {
+  font-weight: 450;
+  color: var(--jf-text-faint);
+}
+
+.row__why {
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--jf-text-faint);
+}
+
+/* --- Learn mode ----------------------------------------------------------- */
+
+.learn {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--jf-panel);
+}
+
+.learn__label {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--jf-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learn select {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  color: var(--jf-text);
+  background: var(--jf-bg);
+  border: 1px solid var(--jf-border-strong);
+  border-radius: 6px;
+  max-inline-size: 100%;
+}
+
+/* --- Footer --------------------------------------------------------------- */
+
+.popup__footer {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-block-start: 1px solid var(--jf-border);
+}
+
+.popup__footer:empty {
+  display: none;
+}
+
+.popup__footer .jf-button {
+  inline-size: 100%;
+}
+
+.footer__row {
+  display: flex;
+  gap: 6px;
+}
+
+.footer__row .jf-button {
+  flex: 1;
+}
+
+.hint {
   margin: 0;
+  text-align: center;
 }
 
-.popup__footer button {
-  width: 100%;
+/* --- Spinner -------------------------------------------------------------- */
+
+.spinner {
+  inline-size: 18px;
+  block-size: 18px;
+  margin: 0 auto;
+  border: 2px solid var(--jf-border-strong);
+  border-block-start-color: var(--jf-accent);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
 }
