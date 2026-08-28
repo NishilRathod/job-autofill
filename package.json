@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node tools/make-icons.mjs",
-    "docs": "node tools/gen-field-reference.mjs"
+    "docs": "node tools/gen-field-reference.mjs",
+    "dev": "node tools/dev-server.mjs"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",
