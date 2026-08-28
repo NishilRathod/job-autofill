@@ -11,16 +11,16 @@
  * See docs/ARCHITECTURE.md, and CONTRIBUTING.md for how to add one.
  */
 
-/** @type {Array<{name: string, match: RegExp, selectors?: Record<string,string>}>} */
-const ADAPTERS = [];
+import { ATS_ADAPTERS } from "./ats.js";
 
 /**
- * Register an adapter. Called by each adapter module at import time.
- * @param {{name: string, match: RegExp, selectors?: Record<string,string>}} adapter
+ * Every adapter, most specific first.
+ *
+ * Imported as data rather than registered by side effect: a module calling
+ * back into this one would be an import cycle, and the array would be in its
+ * temporal dead zone when the registration ran.
  */
-export function register(adapter) {
-  ADAPTERS.push(adapter);
-}
+const ADAPTERS = ATS_ADAPTERS;
 
 /**
  * The adapter for a URL, or null when the generic engine is on its own.

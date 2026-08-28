@@ -322,6 +322,14 @@ globalThis.JobFill = globalThis.JobFill || {};
         name: element.name || "",
         id: element.id || "",
         autocomplete: element.getAttribute("autocomplete") || "",
+        // Vendor-stable naming. Workday's data-automation-id in particular
+        // outlives the visible label, which is localised and re-worded between
+        // tenants — so adapters key on this rather than on text.
+        automationId:
+          element.getAttribute("data-automation-id") ||
+          element.getAttribute("data-testid") ||
+          element.getAttribute("data-qa") ||
+          "",
         label,
         placeholder: element.getAttribute("placeholder") || "",
         ariaLabel: element.getAttribute("aria-label") || "",
