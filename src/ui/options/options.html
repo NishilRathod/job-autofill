@@ -7,32 +7,33 @@
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <main class="options">
-      <header class="options__header">
-        <img src="../../../icons/icon-48.png" alt="" width="40" height="40" />
-        <div>
-          <h1>Your profile</h1>
-          <p class="jf-muted">
-            Everything you enter here is stored on this computer only, in this
-            extension's local storage. It is never uploaded anywhere.
-          </p>
-        </div>
-      </header>
+    <header class="topbar">
+      <div class="topbar__brand">
+        <img src="../../../icons/icon-32.png" alt="" width="24" height="24" />
+        <span class="topbar__name">JobFill</span>
+      </div>
 
       <!--
-        The full profile editor — identity, address, links, work authorisation,
-        employment history, education, documents, snippets and settings —
-        replaces this section in phase 2.
+        Deliberately understated. The privacy claim is the reason this project
+        exists, so it sits permanently in the chrome rather than as a dismissible
+        banner — but stated as fact, not sold.
       -->
-      <section class="options__panel">
-        <h2>Setup coming next</h2>
-        <p class="jf-muted">
-          The profile editor is the next piece being built. The field schema it
-          edits is documented in
-          <code>docs/FIELD-REFERENCE.md</code>.
-        </p>
-      </section>
-    </main>
+      <p class="topbar__privacy jf-mono">
+        <span class="topbar__dot" aria-hidden="true"></span>
+        stored on this device · never uploaded
+      </p>
+
+      <p class="topbar__status jf-mono" id="save-status" role="status" aria-live="polite"></p>
+    </header>
+
+    <div class="shell">
+      <!-- Section rail. Populated by options.js from the schema. -->
+      <nav class="rail" id="rail" aria-label="Profile sections"></nav>
+
+      <!-- Active panel. Only one section is shown at a time, so no screen ever
+           presents more than a dozen fields at once. -->
+      <main class="panel" id="panel" tabindex="-1"></main>
+    </div>
 
     <script src="options.js" type="module"></script>
   </body>

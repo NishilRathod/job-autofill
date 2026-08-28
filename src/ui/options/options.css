@@ -1,52 +1,498 @@
-/* Options page layout. Shared tokens live in ../shared/base.css. */
+/**
+ * Options page layout.
+ *
+ * Two panes: a rail listing every section with its coverage, and a panel
+ * showing one section at a time. Switching panels rather than scrolling one
+ * long form is the central decision here — 105 fields in a single scroll reads
+ * as a chore, whereas thirteen fields on screen reads as finishable.
+ *
+ * Tokens live in ../shared/base.css.
+ */
 
-.options {
-  /* Comfortable reading measure — the editor is a long form, and full-width
-     inputs on a wide monitor are miserable to scan. */
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 32px 24px 64px;
-  display: grid;
-  gap: 24px;
-}
+/* --- Top bar ------------------------------------------------------------- */
 
-.options__header {
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--jf-panel);
+  border-bottom: 1px solid var(--jf-border);
 }
 
-.options__header h1 {
-  font-size: 22px;
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.options__header p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  max-width: 52ch;
+.topbar__name {
+  font-weight: 660;
+  letter-spacing: -0.02em;
 }
 
-.options__panel {
-  background: var(--jf-surface);
-  border: 1px solid var(--jf-border);
+.topbar__privacy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  margin-inline-start: auto;
+}
+
+.topbar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--jf-ok);
+}
+
+.topbar__status {
+  margin: 0;
+  min-width: 11ch; /* reserved so the layout does not jump when text appears */
+  text-align: end;
+  color: var(--jf-ok);
+}
+
+/* --- Shell --------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 28px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  align-items: start;
+}
+
+/* --- Rail ---------------------------------------------------------------- */
+
+.rail {
+  position: sticky;
+  top: 65px; /* clears the sticky topbar */
+  display: grid;
+  gap: 2px;
+}
+
+.rail__summary {
+  padding: 0 10px 12px;
+}
+
+.rail__pct {
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail__label {
+  display: block;
+  margin-top: 2px;
+}
+
+.rail__heading {
+  padding: 14px 10px 4px;
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--jf-text-faint);
+}
+
+.rail__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font: inherit;
+  font-weight: 500;
+  text-align: start;
+  color: var(--jf-text-soft);
+  background: none;
+  border: 0;
   border-radius: var(--jf-radius);
-  padding: 20px;
+  cursor: pointer;
 }
 
-.options__panel h2 {
-  font-size: 15px;
+.rail__item:hover {
+  background: var(--jf-sunken);
+  color: var(--jf-text);
+}
+
+.rail__item[aria-current="true"] {
+  background: var(--jf-accent-soft);
+  color: var(--jf-accent);
+  font-weight: 600;
+}
+
+/* Coverage count. Tabular figures so the column does not shimmer as it
+   changes, which it does on every keystroke. */
+.rail__count {
+  font-family: var(--jf-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--jf-text-faint);
+}
+
+.rail__item[aria-current="true"] .rail__count {
+  color: var(--jf-accent);
+}
+
+.rail__count--complete {
+  color: var(--jf-ok);
+}
+
+/* The coverage meter: a hairline under each rail item that fills as the
+   section is completed. This is the page's structural device — it encodes
+   something true (how much is left) rather than decorating. */
+.rail__meter {
+  grid-column: 1 / -1;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--jf-border);
+  overflow: hidden;
+}
+
+.rail__meter i {
+  display: block;
+  height: 100%;
+  background: var(--jf-ok);
+  transition: width 220ms ease;
+}
+
+.rail__divider {
+  height: 1px;
+  margin: 12px 10px;
+  background: var(--jf-border);
+}
+
+/* --- Panel --------------------------------------------------------------- */
+
+.panel {
+  min-width: 0;
+}
+
+.panel:focus {
+  outline: none;
+}
+
+.panel__head {
+  margin-bottom: 20px;
+}
+
+.panel__eyebrow {
+  display: block;
   margin-bottom: 6px;
 }
 
-.options__panel p {
-  margin: 0;
-  font-size: 13px;
+.panel__title {
+  font-size: 24px;
 }
 
-code {
-  font-family: var(--jf-font-mono);
-  font-size: 0.92em;
-  background: var(--jf-accent-soft);
-  padding: 1px 5px;
-  border-radius: 4px;
+.panel__desc {
+  margin: 8px 0 0;
+  max-width: 58ch;
+  color: var(--jf-text-soft);
+}
+
+.panel__note {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  border-radius: var(--jf-radius);
+  background: var(--jf-warn-soft);
+  color: var(--jf-warn);
+  border: 1px solid color-mix(in srgb, var(--jf-warn) 25%, transparent);
+}
+
+.card {
+  padding: 20px;
+  background: var(--jf-panel);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius-lg);
+  box-shadow: var(--jf-shadow);
+}
+
+.card + .card {
+  margin-top: 14px;
+}
+
+.card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--jf-border);
+}
+
+.card__title {
+  font-size: 14px;
+  font-weight: 620;
+}
+
+/* --- Fields -------------------------------------------------------------- */
+
+.fields {
+  display: grid;
+  gap: 16px;
+}
+
+/* Short fields pair up; anything that needs room gets the full width. */
+@media (min-width: 720px) {
+  .fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .field--textarea,
+  .field--multiselect,
+  .field--tags,
+  .field--file,
+  .field--boolean,
+  .field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.field__labelrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+/* The canonical path, in mono. Kept faint: it is texture and reference, not
+   something to read on every pass. */
+.field__path {
+  flex: none;
+  opacity: 0.75;
+}
+
+.field__path--inline {
+  margin-inline-start: 26px;
+}
+
+.field__help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--jf-text-soft);
+}
+
+.field__help--derived strong {
+  color: var(--jf-text);
+  font-weight: 600;
+}
+
+.field__checkrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.field__checks {
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  background: var(--jf-sunken);
+  border-radius: var(--jf-radius);
+}
+
+.field__check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--jf-accent);
+  cursor: pointer;
+}
+
+/* --- Documents ----------------------------------------------------------- */
+
+.field__filebox {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: var(--jf-sunken);
+  border: 1px dashed var(--jf-border-strong);
+  border-radius: var(--jf-radius);
+}
+
+.field__filebox--filled {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-style: solid;
+  background: var(--jf-ok-soft);
+  border-color: color-mix(in srgb, var(--jf-ok) 30%, transparent);
+}
+
+.field__filemeta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.field__filemeta strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.field__fileactions {
+  display: flex;
+  gap: 6px;
+}
+
+/* The Replace button wraps a file input, which must stay clickable but unseen. */
+.field__fileactions .field__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* --- Repeating entries --------------------------------------------------- */
+
+.entry__index {
+  font-family: var(--jf-mono);
+  font-size: 11px;
+  color: var(--jf-text-faint);
+}
+
+.panel__add {
+  margin-top: 14px;
+}
+
+/* --- Snippets, settings, backup ------------------------------------------ */
+
+.setting {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--jf-border);
+}
+
+.setting:last-child {
+  border-bottom: 0;
+}
+
+.setting__label {
+  grid-column: 2;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.setting__help {
+  grid-column: 2;
+  margin: 0;
+  font-size: 12px;
+  color: var(--jf-text-soft);
+}
+
+.setting__control {
+  grid-row: 1 / 3;
+  padding-top: 2px;
+}
+
+.setting--gated {
+  padding: 14px;
+  margin: 4px 0;
+  border: 1px solid color-mix(in srgb, var(--jf-warn) 30%, transparent);
+  border-radius: var(--jf-radius);
+  background: var(--jf-warn-soft);
+}
+
+.snippet {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: var(--jf-sunken);
+  border-radius: var(--jf-radius);
+}
+
+.snippet + .snippet {
+  margin-top: 10px;
+}
+
+.snippet__head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.snippet__head .jf-input {
+  font-weight: 570;
+}
+
+.empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--jf-text-soft);
+  background: var(--jf-sunken);
+  border-radius: var(--jf-radius);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- Narrow screens ------------------------------------------------------ */
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* The rail becomes a horizontal strip. Meters are dropped here — at this
+     width they read as noise, and the counts still carry the information. */
+  .rail {
+    position: static;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .rail__item {
+    flex: none;
+    width: auto;
+  }
+
+  .rail__meter,
+  .rail__summary,
+  .rail__heading {
+    display: none;
+  }
+
+  .rail__divider {
+    width: 1px;
+    height: auto;
+    margin: 4px 6px;
+  }
+
+  .topbar__privacy {
+    display: none; /* the claim is repeated in the Backup panel */
+  }
 }

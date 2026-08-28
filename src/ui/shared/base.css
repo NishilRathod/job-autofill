@@ -1,55 +1,82 @@
 /**
- * Design tokens and resets shared by the popup and the options page.
+ * Design tokens shared by the popup and the options page.
  *
- * Both surfaces render inside the browser chrome rather than a web page, so
- * they follow the user's OS theme instead of committing to one look. Every
- * colour below is defined once here and referenced by variable, so retheming
- * means editing this block and nothing else.
+ * Direction: a personnel record you can actually read. The palette is cool and
+ * paper-like rather than warm, text is a deep indigo-slate rather than black,
+ * and a monospace utility face carries the machine-readable parts — canonical
+ * field paths, coverage counts, section ids. That mono texture is the page's
+ * signature: it makes the editor read as an instrument rather than a web form,
+ * and those paths are the same ones a user later sees in exports and when
+ * teaching JobFill a new field, so familiarity with them pays off.
+ *
+ * Both surfaces render inside browser chrome, so they follow the OS theme
+ * rather than committing to one look. Every colour is defined once here.
  */
 
 :root {
   color-scheme: light dark;
 
-  /* Brand — matches the extension icon's indigo/violet gradient. */
+  /* Brand, carried over from the extension icon. */
   --jf-accent: #4f46e5;
   --jf-accent-strong: #4338ca;
-  --jf-accent-soft: #eef2ff;
+  --jf-accent-soft: #eef0fe;
 
-  /* Semantic status colours, used by fill previews and result summaries. */
-  --jf-ok: #059669;
+  /* Status. Mint means filled, amber means gated, red means destructive. */
+  --jf-ok: #0f9d6e;
+  --jf-ok-soft: #e6f7f1;
   --jf-warn: #b45309;
-  --jf-danger: #dc2626;
+  --jf-warn-soft: #fdf3e4;
+  --jf-danger: #d4293f;
 
-  /* Surfaces and text. */
-  --jf-bg: #ffffff;
-  --jf-surface: #f8fafc;
-  --jf-border: #e2e8f0;
-  --jf-text: #0f172a;
-  --jf-text-muted: #64748b;
+  /* Surfaces. Cool near-white rather than cream — this is a record, not a
+     letterpress poster, and cream reads as decorative here. */
+  --jf-bg: #fbfbfd;
+  --jf-panel: #ffffff;
+  --jf-sunken: #f3f3f8;
+  --jf-border: #e4e4ee;
+  --jf-border-strong: #cfcfe0;
 
-  /* A single spacing step keeps rhythm consistent across both pages. */
+  --jf-text: #1b1b2b;
+  --jf-text-soft: #55556b;
+  --jf-text-faint: #8a8aa3;
+
+  /* One spacing step, doubled and halved as needed, keeps the rhythm even. */
   --jf-gap: 12px;
-  --jf-radius: 10px;
+  --jf-radius: 8px;
+  --jf-radius-lg: 12px;
 
   --jf-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --jf-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  /* The utility face. Distinctive on every platform and always available, so
+     it carries personality without needing a downloaded font — which the
+     extension's CSP would block anyway. */
+  --jf-mono: ui-monospace, "Cascadia Mono", "SF Mono", "Segoe UI Mono", Consolas, monospace;
+
+  --jf-shadow: 0 1px 2px rgb(27 27 43 / 6%), 0 4px 12px rgb(27 27 43 / 4%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --jf-accent: #818cf8;
-    --jf-accent-strong: #a5b4fc;
-    --jf-accent-soft: #1e1b4b;
+    --jf-accent: #8b8cf8;
+    --jf-accent-strong: #a5a6ff;
+    --jf-accent-soft: #232244;
 
     --jf-ok: #34d399;
+    --jf-ok-soft: #15302a;
     --jf-warn: #fbbf24;
+    --jf-warn-soft: #33280f;
     --jf-danger: #f87171;
 
-    --jf-bg: #0f172a;
-    --jf-surface: #1e293b;
-    --jf-border: #334155;
-    --jf-text: #f1f5f9;
-    --jf-text-muted: #94a3b8;
+    --jf-bg: #12121c;
+    --jf-panel: #1a1a28;
+    --jf-sunken: #22222f;
+    --jf-border: #2e2e40;
+    --jf-border-strong: #3f3f57;
+
+    --jf-text: #ececf4;
+    --jf-text-soft: #a8a8c0;
+    --jf-text-faint: #71718c;
+
+    --jf-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 20%);
   }
 }
 
@@ -66,44 +93,53 @@ body {
   line-height: 1.5;
   color: var(--jf-text);
   background: var(--jf-bg);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
-  line-height: 1.25;
-  font-weight: 650;
-  letter-spacing: -0.011em;
+  line-height: 1.2;
+  /* Personality comes from weight and tracking rather than a display face,
+     since no font can be downloaded here. */
+  font-weight: 660;
+  letter-spacing: -0.018em;
 }
 
 a {
   color: var(--jf-accent);
+  text-underline-offset: 2px;
 }
 
-/* Focus rings are never removed — these pages are heavily keyboard-driven. */
+/* Never removed: both surfaces are heavily keyboard-driven. */
 :focus-visible {
   outline: 2px solid var(--jf-accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
+/* --- Controls ------------------------------------------------------------ */
+
 .jf-button {
   font: inherit;
-  font-weight: 600;
-  padding: 8px 14px;
+  font-weight: 570;
+  padding: 7px 13px;
   border-radius: var(--jf-radius);
-  border: 1px solid var(--jf-border);
-  background: var(--jf-surface);
+  border: 1px solid var(--jf-border-strong);
+  background: var(--jf-panel);
   color: var(--jf-text);
   cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .jf-button:hover {
   border-color: var(--jf-accent);
+  color: var(--jf-accent);
 }
 
-.jf-button--primary {
+.jf-button--primary,
+.jf-button--primary:hover {
   background: var(--jf-accent);
   border-color: var(--jf-accent);
   color: #fff;
@@ -114,6 +150,89 @@ a {
   border-color: var(--jf-accent-strong);
 }
 
+.jf-button--danger:hover {
+  border-color: var(--jf-danger);
+  color: var(--jf-danger);
+}
+
+.jf-button--quiet {
+  border-color: transparent;
+  background: none;
+  padding: 4px 8px;
+}
+
+.jf-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jf-input,
+.jf-select,
+.jf-textarea {
+  font: inherit;
+  width: 100%;
+  padding: 7px 10px;
+  color: var(--jf-text);
+  background: var(--jf-panel);
+  border: 1px solid var(--jf-border-strong);
+  border-radius: var(--jf-radius);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.jf-input:hover,
+.jf-select:hover,
+.jf-textarea:hover {
+  border-color: var(--jf-text-faint);
+}
+
+.jf-input:focus,
+.jf-select:focus,
+.jf-textarea:focus {
+  outline: none;
+  border-color: var(--jf-accent);
+  box-shadow: 0 0 0 3px var(--jf-accent-soft);
+}
+
+.jf-textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+/* --- Utility ------------------------------------------------------------- */
+
+/* The mono texture that gives the editor its character. Used for field paths,
+   counts, section ids — anything the machine also reads. */
+.jf-mono {
+  font-family: var(--jf-mono);
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  color: var(--jf-text-faint);
+}
+
 .jf-muted {
-  color: var(--jf-text-muted);
+  color: var(--jf-text-soft);
+}
+
+/* Visible to screen readers only. */
+.jf-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
