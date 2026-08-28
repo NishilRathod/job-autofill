@@ -9,27 +9,22 @@
   <body>
     <main class="popup">
       <header class="popup__header">
-        <img src="../../../icons/icon-32.png" alt="" width="28" height="28" />
-        <div>
-          <h1>JobFill</h1>
-          <p class="jf-muted popup__tagline">Local-only application autofill</p>
-        </div>
+        <img src="../../../icons/icon-32.png" alt="" width="22" height="22" />
+        <span class="popup__name">JobFill</span>
+        <span class="jf-mono popup__site" id="site"></span>
+        <!-- Always reachable: an empty profile is the most likely reason
+             JobFill has nothing to offer, and the fix lives one click away. -->
+        <button type="button" id="open-options" class="popup__gear" title="Edit your profile">Profile</button>
       </header>
 
       <!--
-        The scan/preview/fill interface replaces this section in phase 5. Until
-        then the popup is honest about what it can do rather than showing a Fill
-        button that does nothing.
+        One region, swapped between states: scanning, preview, result, error.
+        The preview is the safety check the whole manual-trigger design rests
+        on, so it shows every value before anything is written.
       -->
-      <section class="popup__body">
-        <p>Form scanning arrives in a later build. Set up your profile now so it is ready.</p>
-      </section>
+      <div id="body" class="popup__body" role="status" aria-live="polite"></div>
 
-      <footer class="popup__footer">
-        <button id="open-options" class="jf-button jf-button--primary" type="button">
-          Set up your profile
-        </button>
-      </footer>
+      <footer class="popup__footer" id="footer"></footer>
     </main>
 
     <script src="popup.js" type="module"></script>
