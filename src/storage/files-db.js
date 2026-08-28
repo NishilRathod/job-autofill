@@ -157,3 +157,33 @@ export function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/**
+ * Read a stored document as base64, for sending to a content script.
+ *
+ * The encoding is not a preference. A content script's IndexedDB belongs to the
+ * page rather than the extension, so it cannot open this database at all, and
+ * chrome.runtime messages are JSON and will not carry a Blob. Base64 is the
+ * cheapest encoding that survives the trip — a byte array would serialise to
+ * roughly three times the size.
+ *
+ * @param {string} slot Schema path, e.g. "documents.resume".
+ * @returns {Promise<{name: string, type: string, base64: string} | null>}
+ */
+export async function getDocumentAsBase64(slot) {
+  const record = await withStore("readonly", (store) => store.get(slot));
+  if (!record?.blob) return null;
+
+  const bytes = new Uint8Array(await record.blob.arrayBuffer());
+
+  // Chunked, because String.fromCharCode with a few hundred thousand arguments
+  // overflows the call stack. FileReader would avoid this but is unavailable
+  // in a service worker.
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+
+  return { name: record.name, type: record.type, base64: btoa(binary) };
+}

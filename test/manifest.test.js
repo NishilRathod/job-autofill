@@ -66,6 +66,28 @@ describe("manifest.json", () => {
   });
 });
 
+describe("injected content scripts", () => {
+  // These are listed in the service worker rather than the manifest, because
+  // they are injected on demand under activeTab. A missing file there fails at
+  // fill time with a message that points at Chrome rather than at the typo.
+  const worker = readFileSync(join(ROOT, "src/background/service-worker.js"), "utf8");
+  const listed = [...worker.matchAll(/"(src\/content\/[\w.-]+\.js)"/g)].map((m) => m[1]);
+
+  it("lists the content scripts to inject", () => {
+    expect(listed.length).toBeGreaterThan(0);
+  });
+
+  it.each(listed)("%s exists", (path) => {
+    expect(existsSync(join(ROOT, path))).toBe(true);
+  });
+
+  it("injects content.js last, since it depends on the others", () => {
+    // It reads NS.collect, NS.fill and NS.overlay at message time, but the
+    // guard against double-registration runs immediately on injection.
+    expect(listed.at(-1)).toBe("src/content/content.js");
+  });
+});
+
 describe("extension pages", () => {
   const pages = [manifest.action.default_popup, manifest.options_ui.page];
 
