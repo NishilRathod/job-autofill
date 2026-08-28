@@ -1,0 +1,10 @@
+# Normalise line endings so a clone on Windows, macOS or Linux produces an
+# identical working tree. Without this, Chrome loads the extension fine either
+# way, but every cross-platform contributor's first diff is a whole-file
+# rewrite.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.pdf binary
+*.zip binary

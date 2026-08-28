@@ -1,0 +1,52 @@
+/* Options page layout. Shared tokens live in ../shared/base.css. */
+
+.options {
+  /* Comfortable reading measure — the editor is a long form, and full-width
+     inputs on a wide monitor are miserable to scan. */
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  display: grid;
+  gap: 24px;
+}
+
+.options__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.options__header h1 {
+  font-size: 22px;
+}
+
+.options__header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  max-width: 52ch;
+}
+
+.options__panel {
+  background: var(--jf-surface);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  padding: 20px;
+}
+
+.options__panel h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.options__panel p {
+  margin: 0;
+  font-size: 13px;
+}
+
+code {
+  font-family: var(--jf-font-mono);
+  font-size: 0.92em;
+  background: var(--jf-accent-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+}

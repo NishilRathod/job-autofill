@@ -1,0 +1,26 @@
+{
+  "name": "job-autofill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JobFill — a Chrome extension that fills job application forms from a profile stored only on your own machine.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Nishil Rathod",
+  "homepage": "https://github.com/NishilRathod/job-autofill",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NishilRathod/job-autofill.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node tools/make-icons.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  }
+}

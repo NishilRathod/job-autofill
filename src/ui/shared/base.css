@@ -1,0 +1,119 @@
+/**
+ * Design tokens and resets shared by the popup and the options page.
+ *
+ * Both surfaces render inside the browser chrome rather than a web page, so
+ * they follow the user's OS theme instead of committing to one look. Every
+ * colour below is defined once here and referenced by variable, so retheming
+ * means editing this block and nothing else.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Brand — matches the extension icon's indigo/violet gradient. */
+  --jf-accent: #4f46e5;
+  --jf-accent-strong: #4338ca;
+  --jf-accent-soft: #eef2ff;
+
+  /* Semantic status colours, used by fill previews and result summaries. */
+  --jf-ok: #059669;
+  --jf-warn: #b45309;
+  --jf-danger: #dc2626;
+
+  /* Surfaces and text. */
+  --jf-bg: #ffffff;
+  --jf-surface: #f8fafc;
+  --jf-border: #e2e8f0;
+  --jf-text: #0f172a;
+  --jf-text-muted: #64748b;
+
+  /* A single spacing step keeps rhythm consistent across both pages. */
+  --jf-gap: 12px;
+  --jf-radius: 10px;
+
+  --jf-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --jf-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --jf-accent: #818cf8;
+    --jf-accent-strong: #a5b4fc;
+    --jf-accent-soft: #1e1b4b;
+
+    --jf-ok: #34d399;
+    --jf-warn: #fbbf24;
+    --jf-danger: #f87171;
+
+    --jf-bg: #0f172a;
+    --jf-surface: #1e293b;
+    --jf-border: #334155;
+    --jf-text: #f1f5f9;
+    --jf-text-muted: #94a3b8;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--jf-font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--jf-text);
+  background: var(--jf-bg);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.011em;
+}
+
+a {
+  color: var(--jf-accent);
+}
+
+/* Focus rings are never removed — these pages are heavily keyboard-driven. */
+:focus-visible {
+  outline: 2px solid var(--jf-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.jf-button {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--jf-radius);
+  border: 1px solid var(--jf-border);
+  background: var(--jf-surface);
+  color: var(--jf-text);
+  cursor: pointer;
+}
+
+.jf-button:hover {
+  border-color: var(--jf-accent);
+}
+
+.jf-button--primary {
+  background: var(--jf-accent);
+  border-color: var(--jf-accent);
+  color: #fff;
+}
+
+.jf-button--primary:hover {
+  background: var(--jf-accent-strong);
+  border-color: var(--jf-accent-strong);
+}
+
+.jf-muted {
+  color: var(--jf-text-muted);
+}

@@ -1,0 +1,41 @@
+/* Popup-specific layout. Shared tokens live in ../shared/base.css. */
+
+.popup {
+  /* Chrome sizes the popup to its content, up to 800x600. A fixed width keeps
+     the layout stable while the body swaps between scanning, preview, and
+     result states. */
+  width: 340px;
+  padding: 16px;
+  display: grid;
+  gap: var(--jf-gap);
+}
+
+.popup__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.popup__header h1 {
+  font-size: 16px;
+}
+
+.popup__tagline {
+  margin: 0;
+  font-size: 12px;
+}
+
+.popup__body {
+  background: var(--jf-surface);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  padding: 12px;
+}
+
+.popup__body p {
+  margin: 0;
+}
+
+.popup__footer button {
+  width: 100%;
+}

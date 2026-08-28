@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# JobFill .gitignore
+#
+# The most important entries here are the "local data" ones. This project
+# stores real personal information (name, address, phone, work history). None
+# of it may ever reach a remote. Anything matching *.local.json is treated as
+# private user data and is never committed.
+# ---------------------------------------------------------------------------
+
+# Personal profile data. seed.local.json is an optional file a user can create
+# to bulk-import their details through the options page without typing them in.
+*.local.json
+seed.local.json
+profile-export*.json
+
+# Resumes / cover letters / transcripts that might get dropped in the repo root
+# while testing the document upload flow.
+*.pdf
+*.docx
+!docs/**/*.pdf
+
+# Dev dependencies (Vitest + jsdom). Users never need these to run the
+# extension, so nothing here belongs in git.
+node_modules/
+coverage/
+
+# Packaged builds produced by `npm run zip` for manual distribution.
+dist/
+*.zip
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
