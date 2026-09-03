@@ -10,7 +10,7 @@
  */
 
 import { RULES } from "./rules.js";
-import { tokenize, tokenCoverage, signatureOf } from "./normalize.js";
+import { tokenCoverage, signatureOf, descriptorTokens } from "./normalize.js";
 import { NEVER_AUTOFILL, getField } from "./schema.js";
 import { resolveValue } from "./derive.js";
 
@@ -51,13 +51,14 @@ export const SCORES = {
   placeholder: 50,
   contextBonus: 10,
   /**
-   * Added for each text part beyond the first that also matches the same rule.
+   * Added for each text part beyond the first that also matches the same rule,
+   * once the label or the field's own name is among them.
    *
    * Both `ancestorToken` and `placeholder` sit deliberately below the default
    * threshold, so neither can fill a field on its own — a placeholder reading
-   * "Type your response" must never decide anything. But a placeholder saying
-   * "email" *and* a wrapper named "email-input" are two independent authors
-   * agreeing, and that is worth acting on.
+   * "Type your response" must never decide anything. They can confirm a match
+   * the label or name already supports, but two of them together still cannot
+   * make one; see the anchor check in scoreRule for why.
    */
   corroboration: 10,
   corroborationCap: 20,
@@ -219,10 +220,20 @@ function scoreRule(rule, descriptor, tokensByPart) {
 
   if (!best) return null;
 
-  // --- Corroboration. Two parts naming the same thing is stronger evidence
-  // than either alone, and is what lifts a wrapper name plus a placeholder over
-  // a threshold neither of them reaches by itself.
-  if (agreeing.size > 1) {
+  // --- Corroboration. Several parts naming the same thing is stronger evidence
+  // than any one of them alone.
+  //
+  // It requires an anchor: at least one of the agreeing parts must be the label
+  // or the field's own name. Corroboration is meant to strengthen a match that
+  // is already plausible, not to assemble one out of nothing, and without this
+  // it does the latter. A rule whose schema label is a single generic word —
+  // references.phone is just "Phone" — matches a placeholder reading "Phone
+  // number" and a wrapper named "emergencyContactPhone", and two weak signals
+  // at 50 and 52 then add up to 62 and claim a field that names neither a
+  // reference nor the applicant. Neither part identifies *which* phone number
+  // the form is asking for, and adding them together does not either.
+  const anchored = agreeing.has("label") || agreeing.has("name");
+  if (agreeing.size > 1 && anchored) {
     const bonus = Math.min((agreeing.size - 1) * SCORES.corroboration, SCORES.corroborationCap);
     best = { score: best.score + bonus, reason: `${best.reason}, and ${agreeing.size} signals agree` };
   }
@@ -245,26 +256,17 @@ function scoreRule(rule, descriptor, tokensByPart) {
  * Called once per field; each rule then reuses the result.
  */
 function tokensFor(descriptor) {
-  // `||` rather than `??`: an unlabelled field has label "", not undefined, and
-  // a nullish check would never reach any of the fallbacks.
-  const labelText =
-    descriptor.label || descriptor.ariaLabel || descriptor.titleAttr || descriptor.describedBy || "";
-
-  const labelTokens = tokenize(labelText);
-  // The control's own vendor attribute belongs with its name: both are the
-  // form author naming this exact field.
-  const nameTokens = tokenize(`${descriptor.name ?? ""} ${descriptor.id ?? ""} ${descriptor.automationId ?? ""}`);
-  const placeholderTokens = tokenize(descriptor.placeholder ?? "");
-  const ancestorTokens = tokenize((descriptor.ancestorIds ?? []).join(" "));
-  const contextTokens = tokenize(descriptor.sectionText ?? "");
-
+  const parts = descriptorTokens(descriptor);
   return {
-    labelTokens,
-    nameTokens,
-    placeholderTokens,
-    ancestorTokens,
-    contextTokens,
-    allTokens: [...labelTokens, ...nameTokens, ...placeholderTokens, ...contextTokens],
+    labelTokens: parts.label,
+    nameTokens: parts.name,
+    placeholderTokens: parts.placeholder,
+    ancestorTokens: parts.ancestor,
+    contextTokens: parts.context,
+    // Deliberately `parts.all` rather than a hand-assembled list: the veto
+    // haystack must cover every signal the scorer can match on, and assembling
+    // it separately is how they came apart before.
+    allTokens: parts.all,
   };
 }
 

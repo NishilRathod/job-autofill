@@ -12,6 +12,26 @@
  */
 
 import { ATS_ADAPTERS } from "./ats.js";
+import { RULE_BY_PATH } from "../core/rules.js";
+import { descriptorTokens, tokenCoverage } from "../core/normalize.js";
+
+/**
+ * Whether a field is disqualified from a path by that path's own vetoes.
+ *
+ * Adapter hints deliberately outrank the heuristics, vetoes included: a
+ * `selectors` entry names one exact attribute on one known site and is
+ * hand-verified. A `questions` entry is not that. It matches prose, and prose
+ * on an application form is full of near-misses — "Phone (Emergency Contact)"
+ * begins with "Phone" as surely as the applicant's own field does. So question
+ * matches keep the safety net that attribute matches can do without.
+ */
+function vetoed(path, descriptor) {
+  const rule = RULE_BY_PATH.get(path);
+  if (!rule?.veto.length) return false;
+
+  const { all } = descriptorTokens(descriptor);
+  return rule.veto.some((vetoTokens) => tokenCoverage(vetoTokens, all) === 1);
+}
 
 /**
  * Every adapter, most specific first.
@@ -82,7 +102,11 @@ export function adapterFor(url) {
         const test = new RegExp(pattern, "i");
         for (const descriptor of descriptors) {
           if (hints[descriptor.fieldId]) continue;
-          if (test.test(descriptor.label ?? "")) hints[descriptor.fieldId] = path;
+          if (!test.test(descriptor.label ?? "")) continue;
+          // Unlike a selector, a question match is a guess about prose, so it
+          // has to clear the same vetoes a heuristic match would.
+          if (vetoed(path, descriptor)) continue;
+          hints[descriptor.fieldId] = path;
         }
       }
 

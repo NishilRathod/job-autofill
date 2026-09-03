@@ -20,7 +20,7 @@ import { FIELD_BY_PATH } from "../src/core/schema.js";
 
 /** Build a descriptor the way the collector would. */
 const field = (fieldId, attrs = {}) => ({
-  fieldId, name: "", id: "", automationId: "", ...attrs,
+  fieldId, name: "", id: "", automationId: "", label: "", ...attrs,
 });
 
 describe("adapter registry", () => {
@@ -193,5 +193,34 @@ describe("patterns are not over-broad", () => {
     ]);
     expect(hints.a).toBe("documents.resume");
     expect(hints.b).toBe("documents.coverLetterFile");
+  });
+});
+
+describe("question patterns and the safety net", () => {
+  const zoho = adapterFor("https://acme.zohorecruit.in/jobs/Careers/1/Engineer");
+
+  it("does not hand somebody else's field to the applicant's own data", () => {
+    // A selector names one exact attribute and is hand-verified, so it earns the
+    // right to outrank the vetoes. A question matches prose, and prose on an
+    // application form is full of near-misses: "Phone (Emergency Contact)"
+    // begins with "Phone" exactly as the applicant's own field does.
+    const hints = zoho.hintsFor([
+      field("f1", { label: "Phone (Emergency Contact)" }),
+      field("f2", { label: "Email of Reference" }),
+    ]);
+    expect(hints).toEqual({});
+  });
+
+  it("still matches the questions it is there for", () => {
+    const hints = zoho.hintsFor([
+      field("f1", { label: "Mobile" }),
+      field("f2", { label: "Email" }),
+      field("f3", { label: "Current Salary" }),
+    ]);
+    expect(hints).toEqual({
+      f1: "identity.phone",
+      f2: "identity.email",
+      f3: "preferences.currentSalary",
+    });
   });
 });

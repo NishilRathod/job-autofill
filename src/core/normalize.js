@@ -227,6 +227,47 @@ export function tokenCoverage(needleTokens, haystackTokens) {
 }
 
 /**
+ * Every text part of a descriptor, tokenised once.
+ *
+ * The single source of truth for "what words are attached to this field". It
+ * lives here rather than in the matcher because two callers need to agree on
+ * it exactly: the scorer, which decides what a field is, and the veto check,
+ * which decides what it must not be. When those two disagreed — `allTokens`
+ * once omitted the wrapping-element names that the scorer was happily matching
+ * on — a field wrapped in `emergencyContactPhone` scored well enough to be
+ * filled while the "emergency" veto never saw the word that should have
+ * blocked it. Any new signal added to `parts` is therefore automatically
+ * covered by the vetoes too.
+ *
+ * @param {object} descriptor
+ * @returns {{label: string[], name: string[], placeholder: string[],
+ *   ancestor: string[], context: string[], all: string[]}}
+ */
+export function descriptorTokens(descriptor) {
+  // `||` rather than `??`: an unlabelled field has label "", not undefined, and
+  // a nullish check would never reach any of the fallbacks.
+  const labelText =
+    descriptor.label || descriptor.ariaLabel || descriptor.titleAttr || descriptor.describedBy || "";
+
+  // The control's own vendor attribute belongs with its name: both are the
+  // form author naming this exact field.
+  const label = tokenize(labelText);
+  const name = tokenize(`${descriptor.name ?? ""} ${descriptor.id ?? ""} ${descriptor.automationId ?? ""}`);
+  const placeholder = tokenize(descriptor.placeholder ?? "");
+  const ancestor = tokenize((descriptor.ancestorIds ?? []).join(" "));
+  const context = tokenize(descriptor.sectionText ?? "");
+
+  return {
+    label,
+    name,
+    placeholder,
+    ancestor,
+    context,
+    all: [...label, ...name, ...placeholder, ...ancestor, ...context],
+  };
+}
+
+/**
  * A stable identity for a form field, used as the key for learned mappings.
  *
  * Digits are collapsed to `#` so that a field which is `answers[3][value]` on

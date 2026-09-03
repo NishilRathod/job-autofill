@@ -413,19 +413,52 @@ describe("signals below the threshold", () => {
     expect(pathOf(result, "a")).toBeUndefined();
   });
 
-  it("fills when a wrapper and a placeholder independently agree", () => {
-    // Two authors naming the same thing is evidence neither provides alone.
+  it("will not fill on two weak signals with nothing anchoring them", () => {
+    // Corroboration strengthens a match the label or the name already
+    // supports; it must not assemble one out of nothing. Neither a wrapper id
+    // nor a placeholder says *which* field this is, and adding them together
+    // does not either.
     const result = run([
       { fieldId: "both", label: "", placeholder: "email", ancestorIds: ["email-input"] },
     ]);
-    expect(pathOf(result, "both")).toBe("identity.email");
+    expect(pathOf(result, "both")).toBeUndefined();
   });
 
-  it("says in the reason that more than one signal agreed", () => {
+  it("lets a wrapper confirm a match the label already supports", () => {
     const result = run([
-      { fieldId: "both", label: "", placeholder: "email", ancestorIds: ["email-input"] },
+      { fieldId: "anchored", label: "Email", ancestorIds: ["email-input"] },
     ]);
+    expect(pathOf(result, "anchored")).toBe("identity.email");
     expect(result.fills[0].reason).toMatch(/signals agree/);
+  });
+
+  it("does not let a generic one-word rule take a field on weak signals", () => {
+    // references.phone is labelled just "Phone" in the schema, so it matches a
+    // placeholder of "Phone number" and a wrapper named "emergencyContactPhone"
+    // without either of them naming a reference. Whoever that field belongs to,
+    // it is not the applicant and it is not their referee.
+    const profile = testProfile();
+    profile.references[0] = { ...profile.references[0], phone: "+44 20 7946 0000" };
+
+    const result = run(
+      [{
+        fieldId: "ice", label: "", placeholder: "Phone number",
+        ancestorIds: ["emergencyContactPhone"],
+      }],
+      { profile }
+    );
+    expect(result.fills).toEqual([]);
+  });
+
+  it("applies vetoes to names on wrapping elements", () => {
+    // The veto haystack has to cover every signal the scorer can match on.
+    // When it did not, a field wrapped in "emergencyContactPhone" scored 62 on
+    // the wrapper plus the placeholder while the "emergency" veto never saw the
+    // word that should have blocked it, and the applicant's own number went in.
+    const result = run([{
+      fieldId: "ice", label: "Phone", ancestorIds: ["emergencyContactSection"],
+    }]);
+    expect(pathOf(result, "ice")).toBeUndefined();
   });
 
   it("caps the corroboration bonus", () => {

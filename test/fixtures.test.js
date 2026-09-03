@@ -545,3 +545,28 @@ describe("controls dressed up as buttons", () => {
     expect(descriptors[0].label).toBe("Upload a screenshot of your internet speed");
   });
 });
+
+describe("repeated blocks named only by index", () => {
+  it("counts entries when no vendor attribute distinguishes them", () => {
+    // test/fixtures/workday.html gives every repeated control a
+    // data-automation-id, which repeatKeyFor tries first — so the name fallback
+    // it drops to on most other sites was never exercised, and a broken
+    // digit-collapsing regex there passed the entire suite.
+    const profile = fullProfile();
+    profile.education[1] = { ...profile.education[0], school: "Imperial College" };
+
+    const result = planFor(`
+      <h2>Education</h2>
+      <section class="entry">
+        <div><label class="lbl">School</label><input name="education_1_school" /></div>
+      </section>
+      <section class="entry">
+        <div><label class="lbl">School</label><input name="education_2_school" /></div>
+      </section>
+    `, { profile });
+
+    expect(result.descriptors.map((d) => d.sectionIndex)).toEqual([0, 1]);
+    expect(result.fills.map((f) => f.path)).toEqual(["education.0.school", "education.1.school"]);
+    expect(result.fills.map((f) => f.value)).toEqual(["University of London", "Imperial College"]);
+  });
+});

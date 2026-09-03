@@ -406,7 +406,7 @@ globalThis.JobFill = globalThis.JobFill || {};
   function repeatKeyFor(element) {
     return (
       element.getAttribute?.("data-automation-id") ||
-      String(element.getAttribute?.("name") ?? "").replace(/d+/g, "#")
+      String(element.getAttribute?.("name") ?? "").replace(/\d+/g, "#")
     );
   }
 
