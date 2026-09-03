@@ -1,0 +1,286 @@
+<!--
+  A Lever application form, reconstructed from the markup a live posting serves.
+  The nesting here is copied from a real page rather than simplified, because
+  the simplifications are exactly what hid the bugs:
+
+    1. Built-in fields wrap the label, the control and the control's chrome in
+       one <label>. Reading that wrapper's text gives "Resume/CV ATTACH
+       RESUME/CV Analyzing resume... Success!" rather than the question.
+    2. Custom questions put the question two divs down, in
+       `.application-label > .text`, with no association to the control at all.
+    3. Real questions run well past any sane "this is prose, not a label"
+       cut-off — the screen-monitoring one below is 127 characters and the
+       file-upload ones are over 200.
+    4. Radio and checkbox options are each wrapped in their own <label>, with
+       the question only on the block around them. Reading an option's label
+       answers "Yes" to every question on the form.
+    5. Custom questions are named cards[<uuid>][fieldN]. The uuid changes with
+       every posting and the index means nothing.
+
+  No real posting is reproduced; the field shapes are the ones Lever presents.
+-->
+<form id="application-form">
+
+  <div class="section page-centered application-form">
+    <h4>Submit your application</h4>
+    <ul>
+
+      <li class="application-question resume">
+        <label>
+          <div class="application-label">Resume/CV <span class="required">✱</span></div>
+          <div class="application-field">
+            <a class="postings-btn template-btn-utility visible-resume-upload">
+              <span class="filename"></span>
+              <span class="default-label">ATTACH RESUME/CV</span>
+              <input class="application-file-input" data-qa="input-resume" id="resume-upload-input" name="resume" type="file" />
+            </a>
+            <span class="resume-upload-working"><div class="resume-upload-label">Analyzing resume...</div></span>
+            <span class="resume-upload-success"><div class="resume-upload-label">Success!</div></span>
+          </div>
+        </label>
+      </li>
+
+      <li class="application-question">
+        <label>
+          <div class="application-label">Full name<span class="required">✱</span></div>
+          <div class="application-field"><input type="text" data-qa="name-input" name="name" required /></div>
+        </label>
+      </li>
+
+      <li class="application-question">
+        <label>
+          <div class="application-label">Email<span class="required">✱</span></div>
+          <div class="application-field"><input type="email" data-qa="email-input" name="email" required /></div>
+        </label>
+      </li>
+
+      <li class="application-question">
+        <label>
+          <div class="application-label">Phone <span class="required">✱</span></div>
+          <div class="application-field"><input type="text" data-qa="phone-input" name="phone" required /></div>
+        </label>
+      </li>
+
+      <li class="application-question" data-qa="structured-contact-location-question">
+        <label>
+          <div class="application-label">Current location <span class="required">✱</span></div>
+          <div class="application-field">
+            <input class="location-input" data-qa="location-input" id="location-input" type="text" name="location" required />
+            <input id="selected-location" type="hidden" name="selectedLocation" />
+          </div>
+        </label>
+      </li>
+
+      <li class="application-question">
+        <label>
+          <div class="application-label">Current company </div>
+          <div class="application-field"><input type="text" data-qa="org-input" name="org" /></div>
+        </label>
+      </li>
+
+    </ul>
+  </div>
+
+  <div class="section page-centered application-form">
+    <h4>Links</h4>
+    <ul>
+      <li class="application-question">
+        <label>
+          <div class="application-label">LinkedIn Profile URL<span class="required">✱</span></div>
+          <div class="application-field"><input type="text" name="urls[LinkedIn Profile]" required /></div>
+        </label>
+      </li>
+    </ul>
+  </div>
+
+  <!-- From here down: custom questions. Nothing in the markup names them. -->
+
+  <div class="section page-centered application-form" data-qa="additional-cards">
+    <h4 data-qa="card-name">Salary</h4>
+    <input type="hidden" value="{}" name="cards[8d5d9365-0eb3-4b63-ab6f-e6fa33763349][baseTemplate]" />
+    <ul>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width text">
+            <div class="text">Current Monthly Salary/Compensation (USD)<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <input required class="card-field-input" type="text" placeholder="Type your response"
+                   name="cards[8d5d9365-0eb3-4b63-ab6f-e6fa33763349][field0]" />
+          </div>
+        </div>
+      </li>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width text">
+            <div class="text">Expected Monthly Salary/Compensation (USD)<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <input required class="card-field-input" type="text" placeholder="Type your response"
+                   name="cards[8d5d9365-0eb3-4b63-ab6f-e6fa33763349][field1]" />
+          </div>
+        </div>
+      </li>
+
+    </ul>
+  </div>
+
+  <div class="section page-centered application-form" data-qa="additional-cards">
+    <h4 data-qa="card-name">Application Questions</h4>
+    <input type="hidden" value="{}" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][baseTemplate]" />
+    <ul>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width text">
+            <div class="text">Who referred you to this position? Enter their first and last name here.</div>
+          </div>
+          <div class="application-field full-width">
+            <input class="card-field-input" type="text" placeholder="Type your response"
+                   name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field0]" />
+          </div>
+        </div>
+      </li>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width textarea">
+            <div class="text">What is your earliest start date?<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <textarea class="card-field-input" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field1]" required></textarea>
+          </div>
+        </div>
+      </li>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width dropdown">
+            <div class="text">How did you hear about this job?<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <div class="application-dropdown">
+              <select name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field2]" required>
+                <option value="">Select...</option>
+                <option value="Indeed">Indeed</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Referral">Referral</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </li>
+
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width dropdown">
+            <div class="text">If you are currently employed, what is your notice period?<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <div class="application-dropdown">
+              <select name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field3]" required>
+                <option value="">Select...</option>
+                <option value="1 week">1 week</option>
+                <option value="1 month">1 month</option>
+                <option value="More than a month">More than a month</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </li>
+
+      <!-- A radio group. The question is on the block; each option carries its
+           own wrapping <label>, so a naive collector labels this "Yes". -->
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width multiple-choice">
+            <div class="text">Have you worked for this company before?<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <ul data-qa="multiple-choice">
+              <li><label><input type="radio" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field4]" value="Yes" required /><span class="application-answer-alternative">Yes</span></label></li>
+              <li><label><input type="radio" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field4]" value="No" required /><span class="application-answer-alternative">No</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </li>
+
+      <!-- 127 characters. Anything that treats long text as prose loses this
+           question entirely and reports the field as unlabelled. -->
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width multiple-choice">
+            <div class="text">Wing Assistants are enrolled in a screen monitoring program for Quality Assurance purposes. Are you okay with this arrangement?<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <ul data-qa="multiple-choice">
+              <li><label><input type="radio" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field5]" value="Yes" required /><span class="application-answer-alternative">Yes</span></label></li>
+              <li><label><input type="radio" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field5]" value="No" required /><span class="application-answer-alternative">No</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </li>
+
+      <!-- A checkbox group: one question, six answers, one shared name. -->
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width multiple-select">
+            <div class="text">Which industries have you worked in? (Select all that apply.)<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <ul data-qa="checkboxes">
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Administrative" required /><span class="application-answer-alternative">Administrative</span></label></li>
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Construction" required /><span class="application-answer-alternative">Construction</span></label></li>
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Customer Service" required /><span class="application-answer-alternative">Customer Service</span></label></li>
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Healthcare" required /><span class="application-answer-alternative">Healthcare</span></label></li>
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Legal" required /><span class="application-answer-alternative">Legal</span></label></li>
+              <li><label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field6]" value="Real Estate" required /><span class="application-answer-alternative">Real Estate</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </li>
+
+      <!-- A lone consent tickbox. It shares no name with anything, so it must
+           stay a field in its own right rather than being folded into a group. -->
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width">
+            <div class="text">I consent to a background check<span class="required">✱</span></div>
+          </div>
+          <div class="application-field">
+            <label><input type="checkbox" name="cards[000adbe5-f4db-472a-ac88-98a98db52ff9][field7]" value="yes" /><span class="application-answer-alternative">I agree</span></label>
+          </div>
+        </div>
+      </li>
+
+    </ul>
+  </div>
+
+  <!-- A 205-character question, which is what a file-upload prompt looks like
+       once it carries instructions and a link. -->
+  <div class="section page-centered application-form" data-qa="additional-cards">
+    <h4 data-qa="card-name">Internet &amp; Computer Specs</h4>
+    <ul>
+      <li class="application-question custom-question">
+        <div>
+          <div class="application-label full-width file-upload">
+            <div class="text">Please upload a screenshot of your main internet download and upload speeds. You may use https://www.speedtest.net/ to test your connection. The screenshot should look as follows: https://imgur.com/BITfji6<span class="required">✱</span></div>
+          </div>
+          <div class="application-field full-width required-field">
+            <a class="upload-file-overlay">
+              <span class="filename"></span>
+              <span class="default-label">Upload file</span>
+              <input type="file" class="application-file-input" name="cards[17e88c96-7579-437d-be0e-af0abb9b4d25][field0]" data-qa="application-file-upload" required />
+            </a>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <input type="hidden" name="accountId" value="85bae86d-e545-4ddb-b30b-3d2fa9909c7c" />
+  <input type="hidden" name="timezone" id="applicant-timezone" value="Asia/Calcutta" />
+  <button id="btn-submit" type="button" data-qa="btn-submit">Submit application</button>
+</form>

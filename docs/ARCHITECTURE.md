@@ -116,8 +116,15 @@ involved.
 An adapter is mostly *data*, not code:
 
 - a URL pattern identifying the ATS,
-- a map of CSS selectors to canonical field keys, for fields the generic engine gets
-  wrong,
+- `selectors`: attribute patterns mapped to canonical field keys, for fields the
+  generic engine gets wrong. Matched against the control's `name`, `id` and vendor
+  attribute *and the same attributes on its wrapping elements* — component
+  frameworks put the generic id on the control and the meaningful one on the div
+  around it,
+- `questions`: label patterns mapped to the same keys, for systems that name every
+  field with an opaque record id (Lever's `cards[<uuid>][field7]`, Zoho Recruit's
+  `rec-form_<digits>`). There the rendered question is the only thing identifying a
+  field, and matching it per-site keeps that looseness out of the global rules,
 - flags describing widget quirks (for example, "this site's dropdowns are buttons
   that open a listbox, not `<select>` elements").
 

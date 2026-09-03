@@ -116,8 +116,8 @@ Two categories get special handling:
 The matching engine works on any form. These sites additionally get hand-tuned
 adapters for the fields the heuristics get wrong:
 
-Workday · Greenhouse · Lever · Ashby · Workable · SmartRecruiters · iCIMS ·
-Taleo · BambooHR · Rippling · Pinpoint · Teamtailor
+Workday · Greenhouse · Lever · Zoho Recruit · Ashby · Workable ·
+SmartRecruiters · iCIMS · Taleo · BambooHR · Rippling · Pinpoint · Teamtailor
 
 ## Development
 

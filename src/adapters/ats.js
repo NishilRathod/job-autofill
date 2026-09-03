@@ -3,8 +3,9 @@
  *
  * An adapter is a URL pattern plus a map of attribute patterns to canonical
  * field paths. Nothing here touches the DOM: the patterns are matched against
- * the `name`, `id` and vendor attributes the collector already recorded, which
- * is what keeps adapters testable with plain objects and cheap to maintain.
+ * the `name`, `id`, vendor attributes and wrapping-element ids the collector
+ * already recorded, which is what keeps adapters testable with plain objects
+ * and cheap to maintain.
  *
  * Adapters exist for the fields the generic engine gets *wrong*, not for every
  * field. Greenhouse labels its name fields perfectly well and the heuristics
@@ -13,11 +14,18 @@
  * a vendor-specific attribute. Every entry below should be justifiable that
  * way — a bloated adapter is one that breaks on the vendor's next redesign.
  *
- * Patterns are case-insensitive regular expressions, tested against a string of
- * the field's name, id and automation id joined together.
+ * Two kinds of pattern, both case-insensitive regular expressions:
+ *
+ *   - `selectors` are tested against the field's name, id, vendor attribute and
+ *     the ids of its wrapping elements, joined together.
+ *   - `questions` are tested against the *resolved label*. They exist for sites
+ *     whose attribute names carry no meaning whatsoever — Lever's
+ *     `cards[<uuid>][field7]`, Zoho's `rec-form_<digits>` — where the rendered
+ *     question is the only thing identifying a field. Prefer `selectors`:
+ *     labels are localised and re-worded, attributes usually are not.
  */
 
-/** @type {Array<{name: string, match: RegExp, selectors: Record<string,string>}>} */
+/** @type {Array<{name: string, match: RegExp, selectors?: Record<string,string>, questions?: Record<string,string>}>} */
 export const ATS_ADAPTERS = [
 
 
@@ -28,29 +36,42 @@ export const ATS_ADAPTERS = [
 // everything through data-automation-id. The generic engine copes because the
 // collector reads sibling text as a label, but the automation ids are far more
 // stable than that text, which is localised and re-worded between tenants.
+//
+// The patterns below match against wrapping elements as well as the control
+// itself, which is how Workday is actually built: the input carries a generic
+// id like `textInputBox` and the div around it carries
+// `formField-legalNameSection--firstName`. Tenants differ on whether the
+// separator is "_" or "--", so every pattern accepts both.
+//
+// UNVERIFIED against a live tenant — see test/fixtures/workday.html, which
+// reproduces the wrapper shape, but no failing real posting was available when
+// this was written.
 // ---------------------------------------------------------------------------
 {
   name: "Workday",
   match: /\.myworkdayjobs\.com|\.workday\.com/i,
   selectors: {
-    "legalNameSection_firstName": "identity.firstName",
-    "legalNameSection_lastName": "identity.lastName",
-    "legalNameSection_middleName": "identity.middleName",
-    "preferredNameSection_firstName": "identity.preferredName",
+    "legalNameSection[-_]+firstName": "identity.firstName",
+    "legalNameSection[-_]+lastName": "identity.lastName",
+    "legalNameSection[-_]+middleName": "identity.middleName",
+    "preferredNameSection[-_]+firstName": "identity.preferredName",
     "\\bemail\\b(?!.*confirm)": "identity.email",
     "phone-?number|phoneNumber": "identity.phone",
-    "addressSection_addressLine1": "address.line1",
-    "addressSection_addressLine2": "address.line2",
-    "addressSection_city": "address.city",
-    "addressSection_countryRegion": "address.stateProvince",
-    "addressSection_postalCode": "address.postalCode",
-    "addressSection_country(?!Region)": "address.country",
+    "addressSection[-_]+addressLine1": "address.line1",
+    "addressSection[-_]+addressLine2": "address.line2",
+    "addressSection[-_]+city": "address.city",
+    "addressSection[-_]+countryRegion": "address.stateProvince",
+    "addressSection[-_]+postalCode": "address.postalCode",
+    "addressSection[-_]+country(?!Region)": "address.country",
     "workExperience.*jobTitle": "work.title",
     "workExperience.*company": "work.company",
     "education.*schoolName|educationSection.*school": "education.school",
     "education.*degree": "education.degree",
     "education.*fieldOfStudy": "education.fieldOfStudy",
     "source--source|howDidYouHear": "screening.howDidYouHearAboutUs",
+    // Deliberately not `file-upload-input-ref`, which Workday reuses for every
+    // attachment on the page including the cover letter.
+    "resumeAttachments": "documents.resume",
   },
 },
 
@@ -74,7 +95,10 @@ export const ATS_ADAPTERS = [
 },
 
 // ---------------------------------------------------------------------------
-// Lever — names fields plainly, so only the org/links need disambiguating.
+// Lever — names its built-in fields plainly, but its custom questions not at
+// all: they arrive as cards[<uuid>][field7], where the uuid changes with every
+// posting and the index means nothing. Those need `questions`.
+//
 // "org" reads as an employer name to the heuristics, but Lever means the
 // applicant's current company.
 // ---------------------------------------------------------------------------
@@ -82,12 +106,71 @@ export const ATS_ADAPTERS = [
   name: "Lever",
   match: /jobs\.lever\.co|hire\.lever\.co/i,
   selectors: {
-    "\\borg\\b": "work.company",
+    "\\borg\\b|\\borg-input\\b": "work.company",
     "urls\\[LinkedIn\\]|linkedin": "links.linkedin",
     "urls\\[GitHub\\]|github": "links.github",
     "urls\\[Portfolio\\]|portfolio": "links.portfolio",
     "urls\\[Other\\]": "links.otherLink",
-    "\\bresume\\b": "documents.resume",
+    "\\bresume\\b|resume-upload-input|input-resume": "documents.resume",
+    "\\bname-input\\b": "identity.fullName",
+    "\\bemail-input\\b": "identity.email",
+    "\\bphone-input\\b": "identity.phone",
+    "structured-contact-location-question|\\blocation-input\\b": "address.currentLocationText",
+  },
+  questions: {
+    "how did you hear about": "screening.howDidYouHearAboutUs",
+    "who referred you|referred you to this": "screening.referredByName",
+    "current .*(salary|compensation)": "preferences.currentSalary",
+    "(expected|desired) .*(salary|compensation)": "preferences.desiredSalary",
+    "earliest start date|when can you start": "preferences.earliestStartDate",
+    "notice period": "preferences.noticePeriod",
+    "linkedin profile": "links.linkedin",
+  },
+},
+
+// ---------------------------------------------------------------------------
+// Zoho Recruit — the case that makes `questions` necessary.
+//
+// Every field is named `rec-form_<18 digits>`, an internal record id that
+// differs in every tenant and carries no meaning at all. Tokenised, the whole
+// page reduces to "rec form", so selectors are worthless here and the visible
+// label is the only thing identifying a field.
+//
+// Zoho renders with its own Lyte component library, which stacks six wrappers
+// between an input and its <label> and parks a currency symbol nearer to the
+// salary boxes than their real label. The label ranking in
+// src/content/collect.js is what makes these questions resolvable at all.
+// ---------------------------------------------------------------------------
+{
+  name: "Zoho Recruit",
+  match: /zohorecruit\.(com|in|eu|jp|com\.au|uk)|recruit\.zoho\./i,
+  // No selectors at all, and that is the point: there is no attribute on a Zoho
+  // form worth matching. The only other stably-named control is the "autofill
+  // from resume" parser at the top of the page, and it is deliberately left
+  // alone — attaching there feeds Zoho's own parser instead of filling the
+  // required Resume field further down, which would look like success and
+  // submit an application with no resume on it.
+  questions: {
+    "^first name": "identity.firstName",
+    "^last name": "identity.lastName",
+    "^email": "identity.email",
+    "^mobile|^phone": "identity.phone",
+    "^city": "address.city",
+    "^state\\s*/?\\s*province|^state\\b": "address.stateProvince",
+    "^country": "address.country",
+    "^street|^address": "address.line1",
+    "^zip|^postal": "address.postalCode",
+    "^current employer": "work.company",
+    "^current job title|^job title": "work.title",
+    "^current salary": "preferences.currentSalary",
+    "^expected salary": "preferences.desiredSalary",
+    "^notice period": "preferences.noticePeriod",
+    "^highest qualification": "education.degree",
+    "^skill ?set|^skills": "skills.skills",
+    "earliest available date of joining|^date of joining": "preferences.earliestStartDate",
+    "^linkedin": "links.linkedin",
+    "^resume|^cv\\b": "documents.resume",
+    "^cover letter": "documents.coverLetterFile",
   },
 },
 

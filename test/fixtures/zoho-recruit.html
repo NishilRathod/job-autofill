@@ -1,0 +1,213 @@
+<!--
+  A Zoho Recruit application form, reconstructed from the markup a live posting
+  serves. Zoho renders with its own Lyte component library, and it is the
+  hardest of the mainstream systems to read for four separate reasons:
+
+    1. Every field is named `rec-form_<18 digits>` — an internal record id that
+       differs per tenant. Tokenised, the whole page reduces to "rec form", so
+       the name attribute distinguishes nothing.
+    2. Six wrappers separate an input from its <label>, and the <label> carries
+       no `for` attribute.
+    3. A `<label>` holding nothing but a currency symbol sits *nearer* to each
+       salary box than its real label. Take the nearest and both salary fields
+       are called "₹" — which also collapses their learned-mapping signatures
+       into one, so teaching either one teaches both.
+    4. A salutation dropdown and the first-name box share a single
+       <label>First Name</label>, and four typeahead inputs all carry the same
+       id="inputId".
+
+  No real posting is reproduced; the field shapes are the ones Zoho presents.
+-->
+<div class="crc-form">
+
+  <!-- The "autofill from resume" uploader. The one stable name on the page. -->
+  <div class="crc-easyresume-upload-wrapper">
+    <rec-file-upload-component>
+      <div class="cxElementValue">
+        <lyte-fileupload><input type="file" name="rec-easyresume_file" /></lyte-fileupload>
+      </div>
+    </rec-file-upload-component>
+  </div>
+
+  <!-- One label, two controls: a salutation dropdown and the real name box. -->
+  <div class="crc-form-field">
+    <label class="crm-from-label">First Name *</label>
+    <div class="cxElementValue">
+      <lyte-dropdown class="cxBoxDropdown">
+        <div role="combobox" aria-expanded="false">Mr.</div>
+      </lyte-dropdown>
+      <lyte-input class="cxW100Per">
+        <div class="lyteField">
+          <input type="text" name="rec-form_224765000000003149" autocomplete="false" />
+        </div>
+      </lyte-input>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Last Name *</label>
+    <div class="cxElementValue">
+      <crux-text-component>
+        <lyte-input class="cxW100Per">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003151" autocomplete="false" />
+          </div>
+        </lyte-input>
+      </crux-text-component>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Email *</label>
+    <div class="cxElementValue">
+      <crux-email-component>
+        <lyte-input class="cxW100Per">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003155" autocomplete="off" />
+          </div>
+        </lyte-input>
+      </crux-email-component>
+    </div>
+  </div>
+
+  <!-- Deepest field on the form: a dial-code dropdown and the number share a
+       group, putting the <label> six ancestors above the input. -->
+  <div class="crc-form-field">
+    <label class="crm-from-label">Mobile *</label>
+    <crux-phone-component>
+      <div class="cxElementValue">
+        <div class="cxDropdownInputGroup">
+          <lyte-dropdown>
+            <div role="combobox" aria-expanded="false">(+91)</div>
+          </lyte-dropdown>
+          <lyte-input class="cxW100Per">
+            <div class="lyteField">
+              <input type="text" name="rec-form_224765000000003161" autocomplete="false" />
+            </div>
+          </lyte-input>
+        </div>
+      </div>
+    </crux-phone-component>
+  </div>
+
+  <!-- Two typeahead pickers, both carrying id="inputId". A label[for] lookup
+       against that id would bind an arbitrary one of them. -->
+  <div class="crc-form-field">
+    <label class="crm-from-label">City *</label>
+    <div class="cxElementValue">
+      <lyte-autocomplete>
+        <div role="combobox" aria-expanded="false"></div>
+        <lyte-drop-button>
+          <div class="lyteField"><input type="text" id="inputId" autocomplete="off" /></div>
+        </lyte-drop-button>
+      </lyte-autocomplete>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">State/Province *</label>
+    <div class="cxElementValue">
+      <lyte-autocomplete>
+        <div role="combobox" aria-expanded="false"></div>
+        <lyte-drop-button>
+          <div class="lyteField"><input type="text" id="inputId" autocomplete="off" /></div>
+        </lyte-drop-button>
+      </lyte-autocomplete>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Country *</label>
+    <div class="cxElementValue">
+      <crux-text-component>
+        <lyte-input class="cxW100Per">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003177" autocomplete="false" />
+          </div>
+        </lyte-input>
+      </crux-text-component>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Current Employer</label>
+    <div class="cxElementValue">
+      <crux-text-component>
+        <lyte-input class="cxW100Per">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003181" autocomplete="false" />
+          </div>
+        </lyte-input>
+      </crux-text-component>
+    </div>
+  </div>
+
+  <!-- The currency decoy. `label.lyteLabel` is nearer than `label.crm-from-label`. -->
+  <div class="crc-form-field">
+    <label class="crm-from-label">Current Salary *</label>
+    <crux-number-component>
+      <div class="cxElementValue">
+        <label class="lyteLabel">₹</label>
+        <lyte-input class="cxBoxInput">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003199" autocomplete="off" />
+          </div>
+        </lyte-input>
+      </div>
+    </crux-number-component>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Expected Salary *</label>
+    <crux-number-component>
+      <div class="cxElementValue">
+        <label class="lyteLabel">₹</label>
+        <lyte-input class="cxBoxInput">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000000003197" autocomplete="off" />
+          </div>
+        </lyte-input>
+      </div>
+    </crux-number-component>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Notice Period *</label>
+    <div class="cxElementValue">
+      <crux-picklist-component>
+        <lyte-dropdown class="cxBoxDropdown">
+          <div role="combobox" aria-controls="notice-list" aria-expanded="false">None</div>
+        </lyte-dropdown>
+        <div id="notice-list" role="listbox">
+          <div role="option">Immediate</div>
+          <div role="option">15 days</div>
+          <div role="option">30 days</div>
+          <div role="option">60 days</div>
+        </div>
+      </crux-picklist-component>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Earliest Available Date of Joining? *</label>
+    <div class="cxElementValue">
+      <crux-date-component>
+        <lyte-input class="cxW100Per">
+          <div class="lyteField">
+            <input type="text" name="rec-form_224765000001273006" placeholder="MM/DD/YYYY" autocomplete="false" />
+          </div>
+        </lyte-input>
+      </crux-date-component>
+    </div>
+  </div>
+
+  <div class="crc-form-field">
+    <label class="crm-from-label">Resume *</label>
+    <div class="cxElementValue">
+      <rec-file-upload-component>
+        <lyte-fileupload><input type="file" name="rec-form_224765000000017197_file" /></lyte-fileupload>
+      </rec-file-upload-component>
+    </div>
+  </div>
+
+</div>

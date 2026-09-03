@@ -13,6 +13,8 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { match } from "../src/core/matcher.js";
+import { adapterFor } from "../src/adapters/index.js";
+import { signatureOf } from "../src/core/normalize.js";
 import { emptyProfile, defaultSettings } from "../src/core/defaults.js";
 import { loadContentScripts, loadFixture } from "./helpers/load-content-script.js";
 
@@ -41,20 +43,40 @@ function fullProfile() {
     ...profile.education[0],
     school: "University of London", fieldOfStudy: "Mathematics", startDate: "2014-09",
   };
+  Object.assign(profile.preferences, {
+    currentSalary: "5000", desiredSalary: "7000",
+    noticePeriod: "30 days", earliestStartDate: "2026-11-01",
+  });
+  profile.identity.fullName = "Ada Lovelace";
+  profile.address.stateProvince = "Greater London";
+  profile.address.currentLocationText = "London, United Kingdom";
   profile.screening.howDidYouHearAboutUs = "LinkedIn";
+  profile.screening.previouslyEmployedHere = "No";
   profile.demographics.gender = "Female";
   // Document slots hold metadata; the blob itself lives in IndexedDB.
   profile.documents.resume = { name: "ada-lovelace-cv.pdf", size: 240000, type: "application/pdf", savedAt: new Date().toISOString() };
   return profile;
 }
 
-/** Collect a fixture and run the matcher over it. */
-function planFor(html, { profile = fullProfile(), settings = {} } = {}) {
+/**
+ * Collect a fixture and run the matcher over it.
+ *
+ * Pass a `url` to exercise the site adapter as well. Without one this is the
+ * generic engine alone, which is what most of these cases want to prove.
+ */
+function planFor(html, { profile = fullProfile(), settings = {}, url } = {}) {
   loadFixture(html);
   const { descriptors } = loadContentScripts("collect.js").collect(document);
+  const adapter = url ? adapterFor(url) : null;
   return {
     descriptors,
-    ...match({ descriptors, profile, settings: { ...defaultSettings(), ...settings } }),
+    adapter,
+    ...match({
+      descriptors,
+      profile,
+      settings: { ...defaultSettings(), ...settings },
+      adapterHints: adapter?.hintsFor(descriptors) ?? {},
+    }),
   };
 }
 
@@ -241,5 +263,285 @@ describe("hostile markup", () => {
     });
     expect(fills).toHaveLength(0);
     expect(skipped[0].reason).toBe("Already has a value");
+  });
+});
+
+describe("Lever-style form with unnamed custom questions", () => {
+  let result;
+  beforeEach(() => {
+    result = planFor(fixture("lever.html"), { url: "https://jobs.lever.co/acme/1234/apply" });
+  });
+
+  const byLabel = (text) => result.descriptors.find((d) => d.label === text);
+  const fillFor = (descriptor) => result.fills.find((f) => f.fieldId === descriptor?.fieldId);
+
+  it("reads a question that lives in a sibling div two levels up", () => {
+    // No `for`, no aria, and the control is wrapped twice before the label's
+    // level is reached. This is the shape of every Lever custom question.
+    expect(byLabel("Current Monthly Salary/Compensation (USD)")).toBeDefined();
+    expect(byLabel("What is your earliest start date?")).toBeDefined();
+  });
+
+  it("keeps a question that runs past the prose cut-off", () => {
+    // 127 characters. Treated as prose it is discarded and the field arrives
+    // unlabelled, which on Lever means it arrives with no signal at all.
+    const long = result.descriptors.find((d) => d.label.startsWith("Wing Assistants are enrolled"));
+    expect(long).toBeDefined();
+    expect(long.label.length).toBeGreaterThan(120);
+  });
+
+  it("labels a radio group with its question, not with its first answer", () => {
+    // Each option is wrapped in its own <label>, so reading the option's label
+    // answers "Yes" to every question on the form.
+    const group = result.descriptors.filter((d) => d.type === "radio");
+    expect(group.map((d) => d.label)).not.toContain("Yes");
+    expect(byLabel("Have you worked for this company before?")).toBeDefined();
+  });
+
+  it("collapses a checkbox group into one question with every answer", () => {
+    const industries = byLabel("Which industries have you worked in? (Select all that apply.)");
+    expect(industries).toBeDefined();
+    expect(industries.options).toHaveLength(6);
+    expect(industries.options).toContain("Healthcare");
+  });
+
+  it("leaves a lone consent tickbox as a field of its own", () => {
+    // Only a group of checkboxes sharing a name is one question. Folding a
+    // standalone one into a group would lose it entirely.
+    const checkboxes = result.descriptors.filter((d) => d.type === "checkbox");
+    expect(checkboxes).toHaveLength(2);
+  });
+
+  it.each([
+    ["Full name", "identity.fullName"],
+    ["Email", "identity.email"],
+    ["Current location", "address.currentLocationText"],
+    ["Current company", "work.0.company"],
+    ["Current Monthly Salary/Compensation (USD)", "preferences.currentSalary"],
+    ["Expected Monthly Salary/Compensation (USD)", "preferences.desiredSalary"],
+    ["How did you hear about this job?", "screening.howDidYouHearAboutUs"],
+  ])("places %s in %s", (label, path) => {
+    expect(fillFor(byLabel(label))?.path).toBe(path);
+  });
+
+  it("resolves an adapter hint for a repeating field to a real profile slot", () => {
+    // The adapter names "work.company"; the profile stores an array. Left
+    // unresolved the lookup finds nothing and the field is reported as having
+    // no saved value, with the value sitting right there.
+    const fill = fillFor(byLabel("Current company"));
+    expect(fill?.path).toBe("work.0.company");
+    expect(fill?.value).toBe("Analytical Engines");
+  });
+
+  it("does not read an employer name out of a yes/no question", () => {
+    // "Have you worked for this company before?" contains the word "company",
+    // which is enough for the employer rule to claim it once the question is
+    // read correctly at all.
+    const fill = fillFor(byLabel("Have you worked for this company before?"));
+    expect(fill?.path).toBe("screening.previouslyEmployedHere");
+    expect(fill?.value).toBe("No");
+  });
+});
+
+describe("Zoho Recruit form built from Lyte components", () => {
+  let result;
+  beforeEach(() => {
+    result = planFor(fixture("zoho-recruit.html"), {
+      url: "https://acme.zohorecruit.in/jobs/Careers/1/Engineer",
+    });
+  });
+
+  const byLabel = (text) => result.descriptors.filter((d) => d.label === text);
+  const fillFor = (descriptor) => result.fills.find((f) => f.fieldId === descriptor?.fieldId);
+
+  it("ignores a currency symbol sitting nearer than the real label", () => {
+    // `label.lyteLabel` holds "₹" and is two levels closer to the input than
+    // `label.crm-from-label`. Taking the nearest names both salary fields "₹",
+    // which also collapses their signatures so teaching one teaches both.
+    const labels = result.descriptors.map((d) => d.label);
+    expect(labels).not.toContain("₹");
+    expect(labels).toContain("Current Salary");
+    expect(labels).toContain("Expected Salary");
+  });
+
+  it("gives the two salary fields distinct signatures", () => {
+    const salaries = result.descriptors.filter((d) => /Salary$/.test(d.label));
+    expect(salaries).toHaveLength(2);
+    const signatures = new Set(salaries.map((d) => signatureOf(d)));
+    expect(signatures.size).toBe(2);
+  });
+
+  it("reaches a label six wrappers above the input", () => {
+    // The dial-code dropdown adds a level that pushes the phone field past a
+    // shorter ancestor limit, and it is the field users most notice missing.
+    expect(byLabel("Mobile").length).toBeGreaterThan(0);
+  });
+
+  it("prefers the text box over the dropdown that shares its label", () => {
+    // One <label>First Name</label> covers a salutation dropdown and the real
+    // name box. Both score an exact match; document order favours the dropdown.
+    const [dropdown, input] = byLabel("First Name");
+    expect(dropdown.type).toBe("combobox");
+    expect(input.type).toBe("text");
+    expect(fillFor(input)?.path).toBe("identity.firstName");
+    expect(fillFor(dropdown)).toBeUndefined();
+  });
+
+  it("does not bind a label through an id four controls share", () => {
+    // Four typeahead inputs all carry id="inputId". A label[for] lookup against
+    // that id binds an arbitrary one of them to somebody else's question.
+    expect(byLabel("City").length).toBeGreaterThan(0);
+    expect(byLabel("State/Province").length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["Last Name", "identity.lastName"],
+    ["Email", "identity.email"],
+    ["Mobile", "identity.phone"],
+    ["Current Salary", "preferences.currentSalary"],
+    ["Expected Salary", "preferences.desiredSalary"],
+    ["Notice Period", "preferences.noticePeriod"],
+    ["Resume", "documents.resume"],
+  ])("places %s in %s", (label, path) => {
+    const filled = byLabel(label).map((d) => fillFor(d)?.path).filter(Boolean);
+    expect(filled).toContain(path);
+  });
+
+  it("leaves the resume-parsing uploader alone", () => {
+    // Attaching there feeds Zoho's own parser rather than filling the required
+    // Resume field, which would look like success and submit without a resume.
+    const parser = result.descriptors.find((d) => d.name === "rec-easyresume_file");
+    expect(fillFor(parser)).toBeUndefined();
+  });
+});
+
+describe("Workday fields named only by their wrapper", () => {
+  it("places a field whose control carries no meaningful attribute", () => {
+    // How Workday is really built: a generic `textInputBox` on the input, the
+    // specific `formField-addressSection--city` on the div around it, and a
+    // localised label that the heuristics cannot read. An adapter matching only
+    // the control's own attributes passes a simplified fixture and then places
+    // nothing at all on a live page.
+    const result = planFor(fixture("workday.html"), {
+      url: "https://acme.wd1.myworkdayjobs.com/en-US/careers/apply",
+    });
+    const city = result.descriptors.find((d) => d.id === "wd-city");
+
+    expect(city.label).toBe("Ville");
+    expect(city.ancestorIds).toContain("formField-addressSection--city");
+    expect(result.fills.find((f) => f.fieldId === city.fieldId)?.path).toBe("address.city");
+  });
+
+  it("still separates repeated employment blocks", () => {
+    // The repeat counter now only counts siblings that carry this same field.
+    // A form that puts every question in its own <li> must not read the sixth
+    // question as the sixth employment entry.
+    const result = planFor(fixture("workday.html"));
+    const companies = result.descriptors.filter((d) => d.label === "Company");
+    const indexes = companies.map((d) => d.sectionIndex);
+    expect(indexes).toEqual([0, 1]);
+  });
+});
+
+describe("resolving a label out of unhelpful markup", () => {
+  const labelsOf = (html) => planFor(html).descriptors.map((d) => ({
+    name: d.name, label: d.label, source: d.labelSource,
+  }));
+
+  it("prefers a real label further away to decoration close by", () => {
+    // Component libraries park a unit or a currency symbol between the label
+    // and the input. Nearest-wins names the field after the decoration.
+    const [field] = labelsOf(`
+      <div class="row">
+        <label class="field-label">Expected Salary</label>
+        <div class="control"><label class="unit">£</label><input name="q1" /></div>
+      </div>
+    `);
+    expect(field.label).toBe("Expected Salary");
+  });
+
+  it("prefers a labelled container to a nearer bare div", () => {
+    const [field] = labelsOf(`
+      <div class="question">
+        <div class="question-label">What is your notice period?</div>
+        <div class="control"><div class="hint">in weeks</div><input name="q1" /></div>
+      </div>
+    `);
+    expect(field.label).toBe("What is your notice period?");
+  });
+
+  it("still treats a long bare div as prose rather than a label", () => {
+    // The relaxed cut-off applies only to something that announces itself as a
+    // label. A paragraph of instructions is not one.
+    const prose = "x".repeat(200);
+    const [field] = labelsOf(`<div><div>${prose}</div><input name="q1" /></div>`);
+    expect(field.label).toBe("");
+  });
+
+  it("reads a label out of a table row's header cell", () => {
+    const [field] = labelsOf(`
+      <table><tr><th>Postal code</th><td><input name="q1" /></td></tr></table>
+    `);
+    expect(field.label).toBe("Postal code");
+  });
+
+  it("reads a label out of a column heading when the row has none", () => {
+    // The older table-laid-out systems put the question in <thead> and nothing
+    // beside the control at all, so no amount of walking up finds it.
+    const fields = labelsOf(`
+      <table>
+        <thead><tr><th>City</th><th>Postal code</th></tr></thead>
+        <tbody><tr><td><input name="c" /></td><td><input name="p" /></td></tr></tbody>
+      </table>
+    `);
+    const postal = fields.find((f) => f.name === "p");
+    expect(postal.label).toBe("Postal code");
+    expect(postal.source).toBe("table-header");
+  });
+
+  it("falls back to the title attribute when nothing else names the field", () => {
+    const [field] = labelsOf(`<input name="q1" title="GitHub URL" />`);
+    expect(field.label).toBe("GitHub URL");
+    expect(field.source).toBe("title");
+  });
+
+  it("collects a search-typed input rather than mistaking it for page search", () => {
+    // On an application form this is the country or skill typeahead, which is
+    // one of the fields most in need of help.
+    const fields = labelsOf(`
+      <div><label class="lbl">Country</label><input type="search" name="country" /></div>
+    `);
+    expect(fields.map((f) => f.name)).toContain("country");
+  });
+
+  it("records the ids of wrapping elements", () => {
+    const { descriptors } = planFor(`
+      <div data-automation-id="formField-addressSection--city">
+        <input name="q1" data-automation-id="textInputBox" />
+      </div>
+    `);
+    expect(descriptors[0].ancestorIds).toContain("formField-addressSection--city");
+  });
+});
+
+describe("controls dressed up as buttons", () => {
+  it("does not read a link's own caption as the field's question", () => {
+    // Lever wraps each file input in <a><span class="default-label">Upload
+    // file</span><input></a>. That class is label-shaped enough to beat the
+    // real question two levels further up, and every upload on the form then
+    // arrives called "Upload file".
+    const { descriptors } = planFor(`
+      <div>
+        <div class="application-label"><div class="text">Upload a screenshot of your internet speed</div></div>
+        <div class="application-field">
+          <a class="upload-file-overlay">
+            <span class="filename"></span>
+            <span class="default-label">Upload file</span>
+            <input type="file" name="q1" />
+          </a>
+        </div>
+      </div>
+    `);
+    expect(descriptors[0].label).toBe("Upload a screenshot of your internet speed");
   });
 });

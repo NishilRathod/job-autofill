@@ -93,4 +93,19 @@
       <input id="edu-start" type="text" placeholder="MM/YYYY" data-automation-id="startDate" />
     </div>
   </section>
+
+  <h2>Address</h2>
+
+  <!--
+    How Workday is actually built, and what the rest of this fixture does not
+    reproduce: the input carries a generic automation id shared by every text
+    box on the page, and the *wrapper* carries the specific one. The visible
+    label is localised per tenant, so it identifies nothing either.
+
+    Only an adapter reading the wrapping element can place this field.
+  -->
+  <div class="field" data-automation-id="formField-addressSection--city">
+    <div class="label">Ville</div>
+    <input id="wd-city" type="text" data-automation-id="textInputBox" />
+  </div>
 </div>

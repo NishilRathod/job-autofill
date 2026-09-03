@@ -42,12 +42,32 @@ describe("adapter definitions", () => {
   it.each(ATS_ADAPTERS.map((a) => [a.name, a]))("%s is well formed", (_name, adapter) => {
     expect(adapter.name).toBeTruthy();
     expect(adapter.match).toBeInstanceOf(RegExp);
-    expect(Object.keys(adapter.selectors).length).toBeGreaterThan(0);
+    // Either kind of pattern is enough. Zoho Recruit has no usable attribute
+    // anywhere on the page and is deliberately questions-only.
+    const patterns =
+      Object.keys(adapter.selectors ?? {}).length + Object.keys(adapter.questions ?? {}).length;
+    expect(patterns).toBeGreaterThan(0);
   });
 
   it.each(
     ATS_ADAPTERS.flatMap((a) =>
-      Object.entries(a.selectors).map(([pattern, path]) => [`${a.name}: ${pattern}`, path])
+      Object.entries(a.questions ?? {}).map(([pattern, path]) => [`${a.name}: ${pattern}`, path])
+    )
+  )("%s asks about a real schema field", (_label, path) => {
+    // Same silent-failure risk as a selector typo: the hint wins the match,
+    // then the value lookup finds nothing and the field is quietly skipped.
+    expect(FIELD_BY_PATH.has(path), `${path} is not in the schema`).toBe(true);
+  });
+
+  it.each(
+    ATS_ADAPTERS.flatMap((a) => Object.keys(a.questions ?? {}).map((p) => [a.name, p]))
+  )("%s question pattern %s compiles", (_name, pattern) => {
+    expect(() => new RegExp(pattern, "i")).not.toThrow();
+  });
+
+  it.each(
+    ATS_ADAPTERS.flatMap((a) =>
+      Object.entries(a.selectors ?? {}).map(([pattern, path]) => [`${a.name}: ${pattern}`, path])
     )
   )("%s points at a real schema field", (_label, path) => {
     // A typo here fails silently: the hint wins the match, then the value
@@ -56,7 +76,7 @@ describe("adapter definitions", () => {
   });
 
   it.each(
-    ATS_ADAPTERS.flatMap((a) => Object.keys(a.selectors).map((p) => [a.name, p]))
+    ATS_ADAPTERS.flatMap((a) => Object.keys(a.selectors ?? {}).map((p) => [a.name, p]))
   )("%s pattern %s compiles", (_name, pattern) => {
     expect(() => new RegExp(pattern, "i")).not.toThrow();
   });

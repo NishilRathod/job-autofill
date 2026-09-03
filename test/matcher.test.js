@@ -395,3 +395,135 @@ describe("result ordering", () => {
     expect(result.fills.map((f) => f.fieldId)).toEqual(["a", "b"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Weak signals, and when several of them add up
+// ---------------------------------------------------------------------------
+
+describe("signals below the threshold", () => {
+  it("will not fill a field on a placeholder alone", () => {
+    // A generic placeholder is the single most over-trusted signal on a form.
+    // Lever puts "Type your response" on every custom question it has.
+    const result = run([{ fieldId: "p", label: "", placeholder: "email" }]);
+    expect(pathOf(result, "p")).toBeUndefined();
+  });
+
+  it("will not fill a field on a wrapper's name alone", () => {
+    const result = run([{ fieldId: "a", label: "", ancestorIds: ["email-section"] }]);
+    expect(pathOf(result, "a")).toBeUndefined();
+  });
+
+  it("fills when a wrapper and a placeholder independently agree", () => {
+    // Two authors naming the same thing is evidence neither provides alone.
+    const result = run([
+      { fieldId: "both", label: "", placeholder: "email", ancestorIds: ["email-input"] },
+    ]);
+    expect(pathOf(result, "both")).toBe("identity.email");
+  });
+
+  it("says in the reason that more than one signal agreed", () => {
+    const result = run([
+      { fieldId: "both", label: "", placeholder: "email", ancestorIds: ["email-input"] },
+    ]);
+    expect(result.fills[0].reason).toMatch(/signals agree/);
+  });
+
+  it("caps the corroboration bonus", () => {
+    // Otherwise a well-named field on a well-built form outscores an explicit
+    // autocomplete declaration, which is the one signal that is never a guess.
+    expect(SCORES.corroborationCap).toBeLessThan(SCORES.labelExact);
+  });
+
+  it("still respects a veto when several weak signals agree", () => {
+    // Corroboration must not become a way around the safety net.
+    const result = run([
+      {
+        fieldId: "ice",
+        label: "Emergency contact email",
+        placeholder: "email",
+        ancestorIds: ["email-input"],
+      },
+    ]);
+    expect(pathOf(result, "ice")).toBeUndefined();
+  });
+
+  it("reads a control's own vendor attribute as part of its name", () => {
+    // Workday leaves `name` empty and `id` generated, so without this the one
+    // machine-readable thing on the field is thrown away.
+    const result = run([{ fieldId: "wd", label: "", automationId: "legalNameSection_lastName" }]);
+    expect(pathOf(result, "wd")).toBe("identity.lastName");
+  });
+
+  it("falls back through aria-label, title and describedby for a label", () => {
+    // `label` is always a string, so a nullish check never reaches any of these.
+    expect(pathOf(run([{ fieldId: "t", label: "", titleAttr: "LinkedIn Profile" }]), "t"))
+      .toBe("links.linkedin");
+    expect(pathOf(run([{ fieldId: "d", label: "", describedBy: "GitHub URL" }]), "d"))
+      .toBe("links.github");
+  });
+});
+
+describe("two controls claiming one field", () => {
+  const twins = [
+    { fieldId: "dropdown", tag: "div", type: "combobox", label: "First name" },
+    { fieldId: "box", tag: "input", type: "text", label: "First name" },
+  ];
+
+  it("gives a text field to the text box, not the dropdown beside it", () => {
+    // Zoho Recruit puts a salutation dropdown and the real name box under one
+    // label. Both match exactly; document order alone would pick the dropdown.
+    const result = run(twins);
+    expect(pathOf(result, "box")).toBe("identity.firstName");
+    expect(pathOf(result, "dropdown")).toBeUndefined();
+  });
+
+  it("reports the control that lost as unrecognised rather than dropping it", () => {
+    const result = run(twins);
+    expect(result.unmatched.some((u) => u.fieldId === "dropdown")).toBe(true);
+  });
+
+  it("gives a chooser field to the dropdown, not to a text box", () => {
+    const result = run([
+      { fieldId: "box", tag: "input", type: "text", label: "Country" },
+      { fieldId: "dropdown", tag: "select", type: "select-one", label: "Country",
+        options: ["United Kingdom", "United States"] },
+    ]);
+    expect(pathOf(result, "dropdown")).toBe("address.country");
+  });
+
+  it("does not let the tie-break override a real difference in evidence", () => {
+    // The dropdown declares itself; the text box only looks right.
+    const result = run([
+      { fieldId: "box", tag: "input", type: "text", label: "Country" },
+      { fieldId: "declared", tag: "select", type: "select-one", label: "Nation",
+        autocomplete: "country-name" },
+    ]);
+    expect(pathOf(result, "declared")).toBe("address.country");
+  });
+});
+
+describe("adapter hints for repeating fields", () => {
+  it("resolves a hint naming a repeating field to a concrete profile slot", () => {
+    // An adapter writes "work.company"; the profile stores an array. Left
+    // unresolved the value lookup finds nothing and the field is reported as
+    // having nothing saved, with the value sitting right there.
+    const result = run(
+      [{ fieldId: "org", label: "Current company" }],
+      { adapterHints: { org: "work.company" } }
+    );
+    expect(pathOf(result, "org")).toBe("work.0.company");
+    expect(valueOf(result, "org")).toBe("Analytical Engines");
+  });
+
+  it("honours the section a repeated hint appeared in", () => {
+    const profile = testProfile();
+    profile.work[1] = { ...profile.work[0], company: "Difference Engines" };
+
+    const result = run(
+      [{ fieldId: "second", label: "Employer", sectionIndex: 1 }],
+      { profile, adapterHints: { second: "work.company" } }
+    );
+    expect(pathOf(result, "second")).toBe("work.1.company");
+    expect(valueOf(result, "second")).toBe("Difference Engines");
+  });
+});

@@ -16,11 +16,46 @@ globalThis.JobFill = globalThis.JobFill || {};
 (() => {
   const NS = globalThis.JobFill;
 
-  /** Input types that are controls rather than data entry. */
-  const IGNORED_TYPES = new Set(["submit", "button", "reset", "image", "hidden", "search"]);
+  /**
+   * Input types that are controls rather than data entry.
+   *
+   * `search` is deliberately absent. It reads like a page-search box, but on an
+   * application form it is usually the typeahead for a country, a location or a
+   * skill picker — exactly the fields that need the most help.
+   */
+  const IGNORED_TYPES = new Set(["submit", "button", "reset", "image", "hidden"]);
 
-  /** How far up the tree to look for a label or heading before giving up. */
-  const ANCESTOR_LIMIT = 6;
+  /**
+   * How far up the tree to look for a label before giving up.
+   *
+   * Eight rather than a smaller number because component frameworks stack
+   * wrappers between a field and its label: Zoho Recruit puts six elements
+   * between a phone input and the `<label>` that names it.
+   */
+  const ANCESTOR_LIMIT = 8;
+
+  /** Longest text accepted as a label from a bare container. Beyond this it is prose. */
+  const PROSE_LIMIT = 120;
+
+  /**
+   * Longest text accepted from something that announces itself as a label.
+   *
+   * Real application questions run long — "Are you willing to take on additional
+   * responsibilities and allow your role to evolve based on your skillset…" is
+   * over two hundred characters — and truncating them to the prose limit throws
+   * away the only signal those fields have.
+   */
+  const LABEL_LIMIT = 400;
+
+  /** Elements whose text can stand in for a label. */
+  const CANDIDATE_TAGS = /^(label|span|div|p|legend|dt|th)$/i;
+  const CANDIDATE_TAGS_SELECTOR = "label,span,div,p,legend,dt,th";
+
+  /** Wrappers whose contents are a control's own chrome rather than its label. */
+  const INTERACTIVE = /^(a|button)$/i;
+
+  /** Class and data-attribute values that mark a node as naming a field. */
+  const LABELISH = /(^|[\s_-])(label|question|prompt|caption)([\s_-]|$)/i;
 
   /**
    * Elements the user can type into or choose from.
@@ -80,10 +115,132 @@ globalThis.JobFill = globalThis.JobFill || {};
   }
 
   /**
+   * Whether a candidate is too thin to be anybody's question.
+   *
+   * Component libraries park a currency symbol, a dial code or a lone unit next
+   * to the input, nearer than the real label. Taking one of those hides the
+   * question completely — and worse, two fields that both resolve to the same
+   * symbol then share a learned-mapping signature, so teaching one teaches both.
+   *
+   * Counting letters rather than characters keeps this working for scripts
+   * without a Latin alphabet.
+   */
+  function isJunkLabel(text) {
+    return (String(text).match(/\p{L}/gu) ?? []).length < 2;
+  }
+
+  /** Whether a node announces itself as naming a field, by tag or by class. */
+  function looksLikeLabelContainer(node) {
+    if (/^(label|legend|dt|th)$/i.test(node.tagName)) return true;
+    if (LABELISH.test(node.getAttribute?.("class") ?? "")) return true;
+    for (const attribute of node.attributes ?? []) {
+      if (attribute.name.startsWith("data-") && LABELISH.test(attribute.value)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * An index of ids that appear more than once on the page.
+   *
+   * Duplicate ids are invalid HTML and also common: Zoho Recruit ships four
+   * separate typeahead inputs all carrying the same id. A `label[for]` lookup
+   * against one of those binds an arbitrary field to somebody else's label, so
+   * the strategy has to be skipped rather than trusted.
+   *
+   * Rebuilt whenever the root changes, and forced stale by `collect`, because a
+   * single-page application adds fields between scans.
+   */
+  let idIndex = { root: null, duplicates: new Set() };
+
+  function idIsAmbiguous(root, id) {
+    if (idIndex.root !== root) {
+      const seen = new Set();
+      const duplicates = new Set();
+      for (const node of root.querySelectorAll("[id]")) {
+        const value = node.getAttribute("id");
+        if (seen.has(value)) duplicates.add(value);
+        else seen.add(value);
+      }
+      idIndex = { root, duplicates };
+    }
+    return idIndex.duplicates.has(id);
+  }
+
+  /**
+   * Walk up from `start` looking for a preceding sibling that names it.
+   *
+   * Run twice, and the two passes are the whole point. The first accepts only
+   * nodes that announce themselves as labels, so a `<label>` five levels up
+   * beats a decorative `<span>` sitting right beside the input. Only if that
+   * finds nothing does the second pass accept ordinary containers.
+   *
+   * Within one level the *nearest* preceding sibling wins, which is the one a
+   * reader would take the field to be labelled by.
+   *
+   * @param {Element} start
+   * @param {{labelishOnly: boolean}} options
+   */
+  function scanAncestors(start, { labelishOnly }) {
+    let node = start;
+
+    for (let depth = 0; depth < ANCESTOR_LIMIT && node?.parentElement; depth += 1) {
+      node = node.parentElement;
+
+      // Text inside a link or a button beside the control is that control's
+      // own chrome, not the question. Lever dresses each file input in
+      // <a><span class="default-label">Upload file</span><input></a>, and the
+      // class is label-shaped enough to win against the real question two
+      // levels further up.
+      if (INTERACTIVE.test(node.tagName) || node.getAttribute?.("role") === "button") continue;
+
+      let nearest = "";
+
+      for (const child of node.children) {
+        // Everything from here on sits after the field, so it cannot label it.
+        if (child === start || child.contains?.(start)) break;
+        if (!CANDIDATE_TAGS.test(child.tagName)) continue;
+
+        const labelish = looksLikeLabelContainer(child);
+        if (labelishOnly && !labelish) continue;
+
+        const text = visibleText(child);
+        if (!text || isJunkLabel(text)) continue;
+        if (text.length > (labelish ? LABEL_LIMIT : PROSE_LIMIT)) continue;
+
+        nearest = text;
+      }
+
+      if (nearest) return nearest;
+    }
+
+    return "";
+  }
+
+  /** The `<th>` heading a table cell sits under, for the table-based forms. */
+  function tableHeadingFor(element) {
+    const cell = element.closest?.("td");
+    const row = cell?.parentElement;
+    if (!cell || !row) return "";
+
+    // A row-header cell in the same row, which is how these forms are built.
+    const rowHeader = row.querySelector?.(":scope > th");
+    if (rowHeader) return visibleText(rowHeader);
+
+    // Otherwise the column heading in the same position.
+    const index = [...row.children].indexOf(cell);
+    const table = cell.closest("table");
+    const headers = table?.querySelectorAll?.("thead th, tr:first-child th");
+    return headers?.[index] ? visibleText(headers[index]) : "";
+  }
+
+  /**
    * Resolve the label for a control, in the order browsers and screen readers
    * would: explicit association first, then structure, then proximity.
+   *
+   * @returns {{text: string, source: string}} `source` names the winning
+   *   strategy, which is what makes a mis-labelled field debuggable.
    */
-  function labelFor(element) {
+  function resolveLabel(element) {
     // The element's own root, not the document: inside a shadow root the
     // labels live there too, and searching the document would find none of
     // them and report the whole form as unlabelled.
@@ -97,11 +254,11 @@ globalThis.JobFill = globalThis.JobFill || {};
         .map((id) => visibleText(doc.getElementById(id)))
         .filter(Boolean)
         .join(" ");
-      if (text) return text;
+      if (text) return { text, source: "aria-labelledby" };
     }
 
     const ariaLabel = cleanText(element.getAttribute?.("aria-label"));
-    if (ariaLabel) return ariaLabel;
+    if (ariaLabel) return { text: ariaLabel, source: "aria-label" };
 
     // <label for="...">
     //
@@ -109,40 +266,95 @@ globalThis.JobFill = globalThis.JobFill || {};
     // application forms contain brackets and dots often enough that escaping
     // them is a real risk, and a thrown selector error here would abort the
     // entire scan rather than skipping one field.
-    if (element.id) {
+    if (element.id && !idIsAmbiguous(doc, element.id)) {
       // querySelectorAll rather than getElementsByTagName, because a ShadowRoot
       // is a DocumentFragment and has no getElementsByTagName.
       for (const candidate of doc.querySelectorAll("label")) {
         if (candidate.getAttribute("for") !== element.id) continue;
         const text = visibleText(candidate);
-        if (text) return text;
+        if (text) return { text, source: "for" };
         break;
       }
     }
 
     // A wrapping <label>.
+    //
+    // Its full text is often not the question. Lever wraps the label, the
+    // control and the control's chrome together, so reading the lot yields
+    // "Resume/CV ATTACH RESUME/CV Analyzing resume... Success!". When the
+    // wrapper holds something that announces itself as the label, that is the
+    // question and the rest is furniture.
     const wrapping = element.closest?.("label");
     if (wrapping) {
-      const text = visibleText(wrapping);
-      if (text) return text;
-    }
-
-    // Workday and similar render a label as a sibling <div> with no association
-    // at all, so fall back to the nearest preceding text within a few levels.
-    let node = element;
-    for (let depth = 0; depth < ANCESTOR_LIMIT && node?.parentElement; depth += 1) {
-      node = node.parentElement;
-      for (const child of node.children) {
-        if (child === element || child.contains?.(element)) break;
-        if (/^(label|span|div|p|legend|dt)$/i.test(child.tagName)) {
-          const text = visibleText(child);
-          // Long paragraphs are prose, not labels.
-          if (text && text.length <= 120) return text;
+      for (const inner of wrapping.querySelectorAll(CANDIDATE_TAGS_SELECTOR)) {
+        if (inner.contains(element) || !looksLikeLabelContainer(inner)) continue;
+        const text = visibleText(inner);
+        if (text && !isJunkLabel(text) && text.length <= LABEL_LIMIT) {
+          return { text, source: "wrapping-label" };
         }
       }
+
+      const text = visibleText(wrapping);
+      if (text) return { text, source: "wrapping" };
     }
 
-    return "";
+    // Workday, Lever and Zoho all render the label as a neighbouring element
+    // with no association at all, so fall back to the nearest preceding text.
+    const labelled = scanAncestors(element, { labelishOnly: true });
+    if (labelled) return { text: labelled, source: "sibling-label" };
+
+    const sibling = scanAncestors(element, { labelishOnly: false });
+    if (sibling) return { text: sibling, source: "sibling" };
+
+    const heading = tableHeadingFor(element);
+    if (heading) return { text: heading, source: "table-header" };
+
+    const title = cleanText(element.getAttribute?.("title"));
+    if (title) return { text: title, source: "title" };
+
+    return { text: "", source: "none" };
+  }
+
+  /** The resolved label text alone. Used by the fill step and by tests. */
+  function labelFor(element) {
+    return resolveLabel(element).text;
+  }
+
+  /** Help text associated through aria-describedby, which often names the field. */
+  function describedByText(element) {
+    const ids = element.getAttribute?.("aria-describedby");
+    if (!ids) return "";
+    const doc = element.getRootNode?.() ?? element.ownerDocument;
+    return cleanText(
+      ids.split(/\s+/).map((id) => visibleText(doc.getElementById?.(id))).join(" ")
+    );
+  }
+
+  /** Every control sharing this one's type and name — the group it belongs to. */
+  function peersOf(element, doc) {
+    if (!element.name) return [];
+    // Same reasoning as resolveLabel: names like "job_application[urls][LinkedIn]"
+    // make attribute selectors fragile, so compare properties instead.
+    return [...doc.querySelectorAll("input")].filter(
+      (input) => input.type === element.type && input.name === element.name
+    );
+  }
+
+  /**
+   * The smallest element containing every option in a group.
+   *
+   * A radio group's question is not near any one radio — it is near the block
+   * that holds all of them, which is where the search for it has to start.
+   */
+  function groupContainerFor(element, doc) {
+    const peers = peersOf(element, doc);
+    if (peers.length < 2) return null;
+
+    let container = element;
+    while (container.parentElement && !peers.every((peer) => container.contains(peer))) {
+      container = container.parentElement;
+    }
+    return container === element ? null : container;
   }
 
   /**
@@ -150,9 +362,10 @@ globalThis.JobFill = globalThis.JobFill || {};
    *
    * Each option in a group carries its own label ("Yes", "No"), so reading the
    * label of the first radio yields an answer rather than a question. The
-   * question lives on the surrounding fieldset or radiogroup.
+   * question lives on the surrounding fieldset, radiogroup, or — on the many
+   * forms that use neither — beside the block holding all the options.
    */
-  function groupQuestionFor(element) {
+  function groupQuestionFor(element, doc = element.ownerDocument) {
     const radiogroup = element.closest?.("[role='radiogroup']");
     if (radiogroup) {
       const labelled = radiogroup.getAttribute("aria-label");
@@ -166,7 +379,43 @@ globalThis.JobFill = globalThis.JobFill || {};
     }
 
     const legend = element.closest?.("fieldset")?.querySelector("legend");
-    return legend ? visibleText(legend) : "";
+    if (legend) {
+      const text = visibleText(legend);
+      if (text) return text;
+    }
+
+    // Neither association present, which is the common case: Lever wraps each
+    // option in its own <label> and puts the question in a sibling of the list.
+    // Reading the option's own label here would answer "Yes" to every question.
+    const container = groupContainerFor(element, doc);
+    if (!container) return "";
+
+    return (
+      scanAncestors(container, { labelishOnly: true }) ||
+      scanAncestors(container, { labelishOnly: false })
+    );
+  }
+
+  /**
+   * A key identifying which field this is, ignoring its position.
+   *
+   * Digits are collapsed so that `education_1_school` and `education_2_school`
+   * share a key: that is exactly what makes them repeats of one another rather
+   * than two different fields.
+   */
+  function repeatKeyFor(element) {
+    return (
+      element.getAttribute?.("data-automation-id") ||
+      String(element.getAttribute?.("name") ?? "").replace(/d+/g, "#")
+    );
+  }
+
+  /** Whether a sibling block contains this same field, making it an earlier entry. */
+  function repeatsField(block, key) {
+    for (const control of block.querySelectorAll("input, select, textarea, [role='combobox']")) {
+      if (repeatKeyFor(control) === key) return true;
+    }
+    return false;
   }
 
   /**
@@ -208,15 +457,50 @@ globalThis.JobFill = globalThis.JobFill || {};
       // are built. Counting stops at the previous heading: two employment
       // blocks followed by an education block are all siblings, and counting
       // across the heading would make the education block entry 2.
+      //
+      // Only siblings that repeat *this* field count. Lever puts every question
+      // in its own <li>, so counting siblings by tag alone made the sixth
+      // question on the form the sixth employment entry, and the value was then
+      // looked up in a profile slot that does not exist.
+      const key = repeatKeyFor(element);
       let position = 0;
       for (let sibling = container.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
         if (/^(H[1-6]|LEGEND)$/.test(sibling.tagName)) break;
-        if (sibling.tagName === container.tagName) position += 1;
+        if (sibling.tagName !== container.tagName) continue;
+        if (key && repeatsField(sibling, key)) position += 1;
       }
       sectionIndex = position;
     }
 
     return { sectionText: text, sectionIndex };
+  }
+
+  /**
+   * Vendor-stable ids from the field's ancestors.
+   *
+   * The single most valuable signal on a component-framework form, because the
+   * specific name is usually on a wrapper rather than on the control. Workday
+   * puts a generic id on the input and the meaningful `formField-…` one on the
+   * div around it; Lever names a block `structured-contact-location-question`
+   * and the input inside it nothing at all. Reading only the field's own
+   * attributes throws all of that away.
+   */
+  function ancestorIdsFor(element) {
+    const ids = [];
+    let node = element;
+
+    for (let depth = 0; depth < ANCESTOR_LIMIT && node?.parentElement; depth += 1) {
+      node = node.parentElement;
+      const id =
+        node.getAttribute?.("data-automation-id") ||
+        node.getAttribute?.("data-testid") ||
+        node.getAttribute?.("data-qa") ||
+        node.getAttribute?.("id") ||
+        "";
+      if (id) ids.push(id);
+    }
+
+    return ids;
   }
 
   /** Option labels offered by a select, or by a group of radios/checkboxes. */
@@ -226,13 +510,10 @@ globalThis.JobFill = globalThis.JobFill || {};
     }
 
     if (element.type === "radio" || element.type === "checkbox") {
-      if (!element.name) return [];
-      // Same reasoning as labelFor: names like "job_application[urls][LinkedIn]"
-      // make attribute selectors fragile, so compare properties instead.
-      const group = [...doc.getElementsByTagName("input")].filter(
-        (input) => input.type === element.type && input.name === element.name
-      );
-      return group.map((input) => labelFor(input) || cleanText(input.value)).filter(Boolean);
+      // The option's own label, which for a grouped control is the answer text.
+      return peersOf(element, doc)
+        .map((input) => resolveLabel(input).text || cleanText(input.value))
+        .filter(Boolean);
     }
 
     // ARIA listboxes rendered inline. A closed custom combobox has no options
@@ -277,9 +558,13 @@ globalThis.JobFill = globalThis.JobFill || {};
    *   the content script so a fill instruction can be resolved back to a node.
    */
   function collect(doc = document) {
+    // Force the duplicate-id index stale: a single-page application may have
+    // added or removed fields since the last scan.
+    idIndex = { root: null, duplicates: new Set() };
+
     const elements = new Map();
     const descriptors = [];
-    const seenRadioGroups = new Set();
+    const seenGroups = new Set();
     let counter = 0;
 
     for (const element of deepQueryAll(doc, SELECTOR)) {
@@ -297,12 +582,21 @@ globalThis.JobFill = globalThis.JobFill || {};
       if (tag === "input" && IGNORED_TYPES.has(element.type)) continue;
       if (isHidden(element)) continue;
 
-      // A radio group is one question, not one field per option. Collapsing it
-      // here means the matcher scores the question once and the fill step picks
-      // the right option, rather than the matcher having to understand groups.
-      if (element.type === "radio" && element.name) {
-        if (seenRadioGroups.has(element.name)) continue;
-        seenRadioGroups.add(element.name);
+      const isGrouped = element.type === "radio" || element.type === "checkbox";
+
+      // A group of options is one question, not one field per option.
+      // Collapsing it here means the matcher scores the question once and the
+      // fill step picks the right option.
+      //
+      // Radios always form a group. Checkboxes only do when more than one
+      // shares the name — a lone consent tickbox is a question in its own
+      // right, and folding it into a group would lose it.
+      if (isGrouped && element.name) {
+        const key = `${element.type}:${element.name}`;
+        if (seenGroups.has(key)) continue;
+        if (element.type === "radio" || peersOf(element, doc).length > 1) {
+          seenGroups.add(key);
+        }
       }
 
       const fieldId = `jf${counter++}`;
@@ -310,9 +604,9 @@ globalThis.JobFill = globalThis.JobFill || {};
 
       // For a grouped control the question outranks the individual option's
       // label, which would otherwise be an answer like "Yes".
-      const label = (element.type === "radio" || element.type === "checkbox")
-        ? groupQuestionFor(element) || labelFor(element)
-        : labelFor(element);
+      const question = isGrouped ? groupQuestionFor(element, doc) : "";
+      const resolved = question ? { text: question, source: "group-question" } : resolveLabel(element);
+
       const { sectionText, sectionIndex } = sectionContextFor(element, doc);
 
       descriptors.push({
@@ -330,9 +624,13 @@ globalThis.JobFill = globalThis.JobFill || {};
           element.getAttribute("data-testid") ||
           element.getAttribute("data-qa") ||
           "",
-        label,
+        ancestorIds: ancestorIdsFor(element),
+        label: resolved.text,
+        labelSource: resolved.source,
         placeholder: element.getAttribute("placeholder") || "",
         ariaLabel: element.getAttribute("aria-label") || "",
+        titleAttr: element.getAttribute("title") || "",
+        describedBy: describedByText(element),
         sectionText,
         sectionIndex,
         options: optionsFor(element, doc),
@@ -349,5 +647,9 @@ globalThis.JobFill = globalThis.JobFill || {};
 
   NS.collect = collect;
   // Exported for the fill step and for tests, which exercise them directly.
-  NS.collectInternals = { labelFor, sectionContextFor, optionsFor, cleanText, visibleText, deepQueryAll };
+  NS.collectInternals = {
+    labelFor, resolveLabel, groupQuestionFor, groupContainerFor, sectionContextFor,
+    optionsFor, ancestorIdsFor, cleanText, visibleText, deepQueryAll,
+    isJunkLabel, looksLikeLabelContainer, scanAncestors,
+  };
 })();

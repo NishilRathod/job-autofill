@@ -49,17 +49,43 @@ export function adapterFor(url) {
      */
     hintsFor(descriptors) {
       const hints = {};
+
+      // Attributes first. Vendor-stable naming outlives the visible label,
+      // which is localised and re-worded between tenants.
+      //
+      // Ancestor ids are included because the specific name is frequently on a
+      // wrapper rather than on the control: Workday puts a generic id on the
+      // input and `formField-<section>--<field>` on the div around it, so an
+      // adapter reading only the field's own attributes matches nothing on a
+      // real page while still passing a simplified fixture.
       for (const [pattern, path] of Object.entries(adapter.selectors ?? {})) {
         const test = new RegExp(pattern, "i");
         for (const descriptor of descriptors) {
-          // Vendor-stable attributes first: Workday's data-automation-id and
-          // Greenhouse's field names outlive their visible labels.
-          const haystack = `${descriptor.name} ${descriptor.id} ${descriptor.automationId ?? ""}`;
+          const haystack = [
+            descriptor.name,
+            descriptor.id,
+            descriptor.automationId ?? "",
+            ...(descriptor.ancestorIds ?? []),
+          ].join(" ");
           if (test.test(haystack) && !hints[descriptor.fieldId]) {
             hints[descriptor.fieldId] = path;
           }
         }
       }
+
+      // Then the visible question, for sites whose attributes carry no meaning
+      // at all. Lever names custom questions `cards[<uuid>][field7]` and Zoho
+      // Recruit names every field `rec-form_<digits>`; on those the rendered
+      // label is the only thing that identifies a field, and matching it
+      // per-site is safer than loosening the global rules for everyone.
+      for (const [pattern, path] of Object.entries(adapter.questions ?? {})) {
+        const test = new RegExp(pattern, "i");
+        for (const descriptor of descriptors) {
+          if (hints[descriptor.fieldId]) continue;
+          if (test.test(descriptor.label ?? "")) hints[descriptor.fieldId] = path;
+        }
+      }
+
       return hints;
     },
   };

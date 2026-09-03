@@ -234,11 +234,24 @@ export const RULE_OVERRIDES = {
 
   // --- Screening -----------------------------------------------------------
   "screening.howDidYouHearAboutUs": {
-    aliases: ["how did you hear about us", "how did you find", "source", "referral source", "how did you learn about"],
+    // "how did you hear" without a trailing "us": forms ask it as "…about this
+    // job", "…about this role", "…about this opening", and requiring the literal
+    // word "us" makes every one of those miss.
+    aliases: [
+      "how did you hear", "how did you hear about us", "how did you find",
+      "source", "referral source", "how did you learn about",
+    ],
   },
   "screening.referredByName": { aliases: ["referred by", "referrer", "employee referral", "who referred you"] },
   "screening.previouslyEmployedHere": {
-    aliases: ["previously employed", "worked here before", "former employee", "ever been employed by"],
+    // "…worked for this company before?" otherwise goes to work.company, which
+    // matches on the bare word "company" and would write an employer name into
+    // a yes/no question. The longer phrasings win on specificity.
+    aliases: [
+      "previously employed", "worked here before", "former employee",
+      "ever been employed by", "worked for this company before",
+      "worked for us before", "employed by this company",
+    ],
   },
   "screening.relatedToEmployee": { aliases: ["related to", "relative", "family member employed", "know anyone who works"] },
   "screening.appliedBefore": { aliases: ["applied before", "previously applied", "prior application"] },

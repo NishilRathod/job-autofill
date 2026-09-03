@@ -51,7 +51,34 @@ code:
 ```
 
 Patterns are tested against the field's `name`, `id` and vendor attribute
-(`data-automation-id`, `data-testid`, `data-qa`) joined together.
+(`data-automation-id`, `data-testid`, `data-qa`) **and the same attributes on
+its wrapping elements**, joined together. That last part matters: component
+frameworks routinely put a generic id on the control and the meaningful one on
+the div around it, so a pattern written against the control alone matches
+nothing on a real page.
+
+### When attributes carry no meaning
+
+Some systems name every field with an opaque record id — Lever's
+`cards[<uuid>][field7]`, Zoho Recruit's `rec-form_<18 digits>` — which is
+different in every posting or tenant. There is nothing to match, so those
+adapters use `questions` instead, tested against the field's resolved label:
+
+```js
+{
+  name: "Acme ATS",
+  match: /jobs.acme.com/i,
+  questions: {
+    "^current salary": "preferences.currentSalary",
+    "how did you hear about": "screening.howDidYouHearAboutUs",
+  },
+},
+```
+
+Prefer `selectors`. Labels are localised and re-worded between tenants and
+attributes usually are not, so a `questions` entry is the more fragile of the
+two — reach for it only when there is genuinely no attribute worth matching.
+`selectors` are applied first; `questions` only fill in what is left.
 
 **Only add entries for fields the generic engine gets wrong.** A bloated adapter
 is one that breaks on the vendor's next redesign. If a field is already filled
