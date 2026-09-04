@@ -1,0 +1,48 @@
+<!--
+  A Workday apply flow, copied from the markup a live tenant serves at
+  workday.wd5.myworkdayjobs.com. Two things here are not in workday.html:
+
+  1. **The honeypot.** Workday puts an <input name="website"> on the page whose
+     label reads "This input is for robots only, do not enter if you're human".
+     It is not hidden with `display: none` — it is visible to
+     `getComputedStyle` and collapsed instead with `clip`, `clip-path`, a
+     1px box and a scaled transform, precisely so that a script still finds it.
+     Our matcher scored it 65 on the name alone and filled it with the
+     applicant's website. Filling it marks the submission as a bot and the
+     application is discarded unread, which is a worse outcome than filling
+     nothing at all.
+
+     jsdom does not apply stylesheets, so the collapsing declarations are
+     written as inline styles here to reproduce what getComputedStyle returns
+     on the real page.
+
+  2. **A password field**, because Workday gates the apply flow behind account
+     creation. Nothing in the schema can fill one, but it must not be offered
+     for a learned mapping either.
+
+  The labels here really are associated with `for`, and the wrapper really does
+  carry `formField-<name>` — both confirmed against the live page.
+-->
+<div data-automation-id="applyFlowPage">
+  <h2>Sign In</h2>
+
+  <div data-automation-id="signInContent">
+    <div data-automation-id="formField-email">
+      <label for="input-6">Email Address*</label>
+      <input id="input-6" type="text" data-automation-id="email" />
+    </div>
+
+    <div data-automation-id="formField-password">
+      <label for="input-7">Password*</label>
+      <input id="input-7" type="password" data-automation-id="password" />
+    </div>
+  </div>
+
+  <label for="3767e26c-d62d-4a1e-a192-29f1dea0f6f6">Enter website. This input is for robots only, do not enter if you're human.</label>
+  <input
+    data-automation-id="beecatcher"
+    id="3767e26c-d62d-4a1e-a192-29f1dea0f6f6"
+    name="website"
+    type="text"
+    style="position: absolute; left: 0px; top: 0px; height: 1px; width: 1px; clip: rect(1px, 1px, 1px, 1px); clip-path: polygon(0px 0px, 0px 0px, 0px 0px, 0px 0px); transform: matrix(1, 0, 0, 0.01, 0, 0);" />
+</div>

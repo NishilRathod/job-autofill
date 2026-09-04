@@ -32,20 +32,25 @@ export const ATS_ADAPTERS = [
 // ---------------------------------------------------------------------------
 // Workday — by far the most valuable adapter.
 //
-// Workday associates no labels, renders dropdowns as buttons, and names
-// everything through data-automation-id. The generic engine copes because the
-// collector reads sibling text as a label, but the automation ids are far more
-// stable than that text, which is localised and re-worded between tenants.
+// Workday renders dropdowns as buttons and names everything through
+// data-automation-id, which is far more stable than the visible label — that is
+// localised and re-worded between tenants.
 //
 // The patterns below match against wrapping elements as well as the control
-// itself, which is how Workday is actually built: the input carries a generic
-// id like `textInputBox` and the div around it carries
-// `formField-legalNameSection--firstName`. Tenants differ on whether the
+// itself, which is how Workday is actually built: the div around the input
+// carries `formField-<section>--<field>`. Tenants differ on whether the
 // separator is "_" or "--", so every pattern accepts both.
 //
-// UNVERIFIED against a live tenant — see test/fixtures/workday.html, which
-// reproduces the wrapper shape, but no failing real posting was available when
-// this was written.
+// Partly verified against workday.wd5.myworkdayjobs.com. Confirmed there: the
+// `formField-<name>` wrapper convention, generated `input-N` ids, and an empty
+// `name` on every control. Also confirmed, and contrary to what this comment
+// used to claim: that tenant *does* associate labels with `for`, so the sibling
+// scan is a fallback on Workday rather than the only route.
+//
+// The apply flow itself sits behind account creation, so the field names below
+// — legalNameSection, addressSection, workExperience — are still unverified
+// against a live form. test/fixtures/workday.html reproduces the shape they
+// assume; test/fixtures/workday-signin.html is copied from the real page.
 // ---------------------------------------------------------------------------
 {
   name: "Workday",

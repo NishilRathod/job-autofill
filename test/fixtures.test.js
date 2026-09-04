@@ -570,3 +570,69 @@ describe("repeated blocks named only by index", () => {
     expect(result.fills.map((f) => f.value)).toEqual(["University of London", "Imperial College"]);
   });
 });
+
+describe("honeypots", () => {
+  let result;
+  beforeEach(() => {
+    result = planFor(fixture("workday-signin.html"), {
+      url: "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job/x/apply/applyManually",
+    });
+  });
+
+  it("does not collect a text box collapsed to a single pixel", () => {
+    // Not hidden with `display: none` — visible to getComputedStyle, collapsed
+    // with clip and a 1px box so that a script still finds it. Filling it marks
+    // the submission as a bot and the application is discarded unread.
+    expect(result.descriptors.map((d) => d.name)).not.toContain("website");
+  });
+
+  it("fills nothing at all on the honeypot's account", () => {
+    const profile = fullProfile();
+    profile.links.website = "https://ada.example.com";
+    const withSite = planFor(fixture("workday-signin.html"), {
+      profile,
+      url: "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job/x/apply/applyManually",
+    });
+    expect(withSite.fills.some((f) => f.path === "links.website")).toBe(false);
+  });
+
+  it("never collects a password field", () => {
+    // Workday gates the apply flow behind an account, so one genuinely appears
+    // mid-application. Collecting it would offer it for a learned mapping.
+    expect(result.descriptors.map((d) => d.type)).not.toContain("password");
+  });
+
+  it("still reads the real fields on the same page", () => {
+    // The defences must not cost anything: the email box beside the honeypot
+    // is labelled through `for` and wrapped in formField-email.
+    const email = result.descriptors.find((d) => d.id === "input-6");
+    expect(email.label).toBe("Email Address");
+    expect(email.ancestorIds).toContain("formField-email");
+    expect(result.fills.find((f) => f.fieldId === email.fieldId)?.path).toBe("identity.email");
+  });
+});
+
+describe("honeypots hidden by other means", () => {
+  it("drops a field whose own label admits it is a trap", () => {
+    // Belt and braces for a honeypot the style check cannot see — an off-screen
+    // parent, a zero-height ancestor, a stylesheet that failed to load. These
+    // labels are written for screen readers, so they say plainly what they are.
+    const { descriptors } = planFor(`
+      <div><label for="hp">Leave this field blank</label><input id="hp" name="url" /></div>
+      <div><label for="ok">Personal website</label><input id="ok" name="website" /></div>
+    `);
+    expect(descriptors.map((d) => d.id)).toEqual(["ok"]);
+  });
+
+  it("keeps a field parked off-screen only when it could still be typed into", () => {
+    // The real checkbox under a custom-drawn one is routinely collapsed exactly
+    // like a honeypot, and it is the control that actually has to be clicked.
+    const { descriptors } = planFor(`
+      <label>I agree<input type="checkbox" name="consent"
+        style="position:absolute; left:0; top:0; width:1px; height:1px; clip:rect(1px,1px,1px,1px);" /></label>
+      <input type="text" name="website"
+        style="position:absolute; left:0; top:0; width:1px; height:1px; clip:rect(1px,1px,1px,1px);" />
+    `);
+    expect(descriptors.map((d) => d.name)).toEqual(["consent"]);
+  });
+});

@@ -22,8 +22,14 @@ globalThis.JobFill = globalThis.JobFill || {};
    * `search` is deliberately absent. It reads like a page-search box, but on an
    * application form it is usually the typeahead for a country, a location or a
    * skill picker — exactly the fields that need the most help.
+   *
+   * `password` is here rather than merely unmatched. Workday and the rest gate
+   * their apply flows behind an account, so a password box genuinely appears
+   * mid-application. Nothing in the schema could fill one, but collecting it
+   * offers it in the "Not recognised" list where the user can teach a mapping
+   * onto it — and this extension has no business anywhere near a credential.
    */
-  const IGNORED_TYPES = new Set(["submit", "button", "reset", "image", "hidden"]);
+  const IGNORED_TYPES = new Set(["submit", "button", "reset", "image", "hidden", "password"]);
 
   /**
    * How far up the tree to look for a label before giving up.
@@ -83,12 +89,88 @@ globalThis.JobFill = globalThis.JobFill || {};
    * from its active one — which computed style already handles, since those are
    * hidden with `display: none`.
    */
-  function isHidden(element) {
+  function isHidden(element, style) {
     if (element.hidden || element.getAttribute("aria-hidden") === "true") return true;
-
-    const style = element.ownerDocument.defaultView?.getComputedStyle?.(element);
     if (!style) return false;
     return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
+  }
+
+  /**
+   * Controls that are in the page but deliberately not on the screen.
+   *
+   * These are honeypots, and filling one is worse than filling nothing: it
+   * marks the submission as a bot, and the application is discarded without
+   * anybody reading it. Workday ships one on every apply flow —
+   *
+   *   <input name="website" data-automation-id="beecatcher" type="text">
+   *   <label>Enter website. This input is for robots only, do not enter if
+   *          you're human.</label>
+   *
+   * — collapsed with `clip`, `clip-path` and a 1px box rather than with
+   * `display: none`, precisely so that a script still finds it. Our matcher
+   * scored that field 65 on `name="website"` and filled it.
+   *
+   * Kept separate from `isHidden` because the two need different exemptions.
+   * `isHidden` is right that plenty of real controls measure zero: a file input
+   * behind a styled label, and the real checkbox under every custom-drawn one.
+   * But those are file, checkbox and radio inputs. A *text* box clipped to a
+   * single pixel is never something a person is meant to type into.
+   */
+  const COLLAPSE_EXEMPT = new Set(["file", "checkbox", "radio"]);
+
+  /** A pixel value small enough that nothing can be typed into it. */
+  const TINY = /^([01](\.\d+)?)px$/;
+
+  /** `clip: rect(1px, 1px, 1px, 1px)` and friends — a rectangle enclosing nothing. */
+  function hasEmptyClip(clip) {
+    const parts = /^rect\(\s*(-?[\d.]+)px[,\s]+(-?[\d.]+)px[,\s]+(-?[\d.]+)px[,\s]+(-?[\d.]+)px\s*\)$/
+      .exec(String(clip ?? "").trim());
+    if (!parts) return false;
+    const [, top, right, bottom, left] = parts.map(Number);
+    return right - left <= 1 || bottom - top <= 1;
+  }
+
+  /** A clip-path that encloses no area. */
+  function hasEmptyClipPath(value) {
+    const text = String(value ?? "").trim().toLowerCase();
+    if (!text || text === "none") return false;
+    // Every coordinate zero, so the polygon has no area.
+    if (text.startsWith("polygon(") && !/[1-9]/.test(text)) return true;
+    const inset = /^inset\(\s*([\d.]+)%/.exec(text);
+    return inset ? Number(inset[1]) >= 50 : false;
+  }
+
+  /** Parked far outside the viewport, the other classic way to hide a trap. */
+  function isParkedOffscreen(style) {
+    if (style.position !== "absolute" && style.position !== "fixed") return false;
+    return parseFloat(style.left) <= -1000 || parseFloat(style.top) <= -1000;
+  }
+
+  function isCollapsed(element, style) {
+    if (COLLAPSE_EXEMPT.has(element.type)) return false;
+    if (!style) return false;
+
+    return (
+      hasEmptyClip(style.clip) ||
+      hasEmptyClipPath(style.clipPath) ||
+      (TINY.test(style.width ?? "") && TINY.test(style.height ?? "")) ||
+      isParkedOffscreen(style)
+    );
+  }
+
+  /**
+   * A field whose own label admits it is a trap.
+   *
+   * Belt and braces for honeypots hidden by means the style check cannot see —
+   * an off-screen parent, a zero-height ancestor, a stylesheet that failed to
+   * load. Honeypot labels are written for screen readers, so they say plainly
+   * what the field is for, and that text is the most reliable signal there is.
+   */
+  const DECOY_LABEL =
+    /robots?\s+only|do not (enter|fill|use)|if you.{0,3}re human|leave (this|it)\b.{0,12}\b(blank|empty)/i;
+
+  function isDecoyLabel(text) {
+    return DECOY_LABEL.test(String(text ?? ""));
   }
 
   /** Collapse whitespace and drop the asterisks forms use to mean "required". */
@@ -579,8 +661,11 @@ globalThis.JobFill = globalThis.JobFill || {};
         ? "combobox"
         : (element.type || role || tag).toLowerCase();
 
+      const style = element.ownerDocument.defaultView?.getComputedStyle?.(element) ?? null;
+
       if (tag === "input" && IGNORED_TYPES.has(element.type)) continue;
-      if (isHidden(element)) continue;
+      if (isHidden(element, style)) continue;
+      if (isCollapsed(element, style)) continue;
 
       const isGrouped = element.type === "radio" || element.type === "checkbox";
 
@@ -599,13 +684,17 @@ globalThis.JobFill = globalThis.JobFill || {};
         }
       }
 
-      const fieldId = `jf${counter++}`;
-      elements.set(fieldId, element);
-
       // For a grouped control the question outranks the individual option's
       // label, which would otherwise be an answer like "Yes".
       const question = isGrouped ? groupQuestionFor(element, doc) : "";
       const resolved = question ? { text: question, source: "group-question" } : resolveLabel(element);
+
+      // Resolved before the id is issued, because a honeypot's own label is
+      // often the only thing that gives it away.
+      if (isDecoyLabel(resolved.text)) continue;
+
+      const fieldId = `jf${counter++}`;
+      elements.set(fieldId, element);
 
       const { sectionText, sectionIndex } = sectionContextFor(element, doc);
 
