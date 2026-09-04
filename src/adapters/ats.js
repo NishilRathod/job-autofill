@@ -32,48 +32,75 @@ export const ATS_ADAPTERS = [
 // ---------------------------------------------------------------------------
 // Workday — by far the most valuable adapter.
 //
-// Workday renders dropdowns as buttons and names everything through
-// data-automation-id, which is far more stable than the visible label — that is
-// localised and re-worded between tenants.
+// Rebuilt from a dump of a signed-in "My Information" step on
+// workday.wd5.myworkdayjobs.com, which contradicted almost everything the
+// previous version of this adapter assumed. What is actually true:
 //
-// The patterns below match against wrapping elements as well as the control
-// itself, which is how Workday is actually built: the div around the input
-// carries `formField-<section>--<field>`. Tenants differ on whether the
-// separator is "_" or "--", so every pattern accepts both.
+//   - Controls are named <group>--<field>: the id is name--legalName--firstName,
+//     the name attribute is legalName--firstName, and the wrapper carries
+//     formField-legalName--firstName. There is no "legalNameSection" or
+//     "addressSection" anywhere, so those patterns matched nothing and this
+//     adapter was inert on every field it existed for.
+//   - data-automation-id is absent from the form controls themselves. The
+//     meaningful names live in id, name and the wrapper — which is why the
+//     collector reads ancestors, and why this adapter works at all.
+//   - Labels *are* associated with `for`, contrary to what this comment used to
+//     say. The sibling scan is a fallback on Workday, not the only route.
+//   - Dropdowns are buttons owning a listbox, as previously assumed.
 //
-// Partly verified against workday.wd5.myworkdayjobs.com. Confirmed there: the
-// `formField-<name>` wrapper convention, generated `input-N` ids, and an empty
-// `name` on every control. Also confirmed, and contrary to what this comment
-// used to claim: that tenant *does* associate labels with `for`, so the sibling
-// scan is a fallback on Workday rather than the only route.
+// The one pattern that did match was worse than the ones that did not: a plain
+// "phoneNumber" hit all four controls in the phone block, and the applicant's
+// number landed in the dial-code box. See the lookahead below.
 //
-// The apply flow itself sits behind account creation, so the field names below
-// — legalNameSection, addressSection, workExperience — are still unverified
-// against a live form. test/fixtures/workday.html reproduces the shape they
-// assume; test/fixtures/workday-signin.html is copied from the real page.
+// Everything above the work-experience group is verified. Those last patterns
+// sit further into the flow than the dump covered and are still guesses,
+// written to the same convention the verified fields follow.
 // ---------------------------------------------------------------------------
 {
   name: "Workday",
   match: /\.myworkdayjobs\.com|\.workday\.com/i,
   selectors: {
-    "legalNameSection[-_]+firstName": "identity.firstName",
-    "legalNameSection[-_]+lastName": "identity.lastName",
-    "legalNameSection[-_]+middleName": "identity.middleName",
-    "preferredNameSection[-_]+firstName": "identity.preferredName",
-    "\\bemail\\b(?!.*confirm)": "identity.email",
-    "phone-?number|phoneNumber": "identity.phone",
-    "addressSection[-_]+addressLine1": "address.line1",
-    "addressSection[-_]+addressLine2": "address.line2",
-    "addressSection[-_]+city": "address.city",
-    "addressSection[-_]+countryRegion": "address.stateProvince",
-    "addressSection[-_]+postalCode": "address.postalCode",
-    "addressSection[-_]+country(?!Region)": "address.country",
-    "workExperience.*jobTitle": "work.title",
-    "workExperience.*company": "work.company",
-    "education.*schoolName|educationSection.*school": "education.school",
-    "education.*degree": "education.degree",
-    "education.*fieldOfStudy": "education.fieldOfStudy",
+    // `\b` is not usable here. Workday separates with "--" on the tenant this
+    // was read from and with "_" on others, and an underscore is a *word*
+    // character — so "\\bcity\\b" matches "address--city" while silently
+    // failing on "address_city". These lookarounds treat both as separators.
+    //
+    // They also carry the disambiguation: firstName must not match
+    // firstNameLocal (a second set of boxes for a name written in a non-Latin
+    // script), and country must not match countryPhoneCode.
+    "legalName[-_]+firstName(?![A-Za-z0-9])": "identity.firstName",
+    "legalName[-_]+middleName(?![A-Za-z0-9])": "identity.middleName",
+    "legalName[-_]+lastName(?![A-Za-z0-9])": "identity.lastName",
+    "preferredName[-_]+firstName(?![A-Za-z0-9])": "identity.preferredName",
+    "(?<![A-Za-z0-9])email(?![A-Za-z0-9])(?!.*confirm)": "identity.email",
+
+    // The phone block is four controls whose ids all begin "phoneNumber--":
+    // the number, the device type, the dial code and the extension. A pattern
+    // of plain "phoneNumber" matches every one of them, and the number then
+    // lands in whichever the sort happens to pick — on the live form, the
+    // dial-code typeahead. Refusing a trailing separator keeps this on the
+    // field that is only ever the number.
+    "(?<![A-Za-z0-9])phone[-_]?number(?![A-Za-z0-9_-])": "identity.phone",
+    "(?<![A-Za-z0-9])phone[-_]?type(?![A-Za-z0-9])": "identity.phoneType",
+
+    "(?<![A-Za-z0-9])addressLine1(?![A-Za-z0-9])": "address.line1",
+    "(?<![A-Za-z0-9])addressLine2(?![A-Za-z0-9])": "address.line2",
+    "(?<![A-Za-z0-9])city(?![A-Za-z0-9])": "address.city",
+    "(?<![A-Za-z0-9])postalCode(?![A-Za-z0-9])": "address.postalCode",
+    "(?<![A-Za-z0-9])countryRegion(?![A-Za-z0-9])": "address.stateProvince",
+    "(?<![A-Za-z0-9])country(?![A-Za-z0-9_-])": "address.country",
+
+    "candidateIsPreviousWorker": "screening.previouslyEmployedHere",
     "source--source|howDidYouHear": "screening.howDidYouHearAboutUs",
+
+    // Still unverified — these steps sit further into the flow than the dump
+    // this adapter was rebuilt from. Written to the same `<group>--<field>`
+    // convention the verified fields follow.
+    "workExperience[-_]+jobTitle": "work.title",
+    "workExperience[-_]+companyName|workExperience[-_]+company": "work.company",
+    "education[-_]+schoolName|education[-_]+school": "education.school",
+    "education[-_]+degree": "education.degree",
+    "education[-_]+fieldOfStudy": "education.fieldOfStudy",
     // Deliberately not `file-upload-input-ref`, which Workday reuses for every
     // attachment on the page including the cover letter.
     "resumeAttachments": "documents.resume",

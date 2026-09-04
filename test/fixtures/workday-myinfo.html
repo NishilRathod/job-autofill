@@ -1,0 +1,120 @@
+<!--
+  Workday's "My Information" step, reproduced from a dump of a signed-in live
+  form on workday.wd5.myworkdayjobs.com.
+
+  This fixture exists because the hand-written workday.html was wrong about the
+  thing that mattered most. It invented `legalNameSection_firstName` and
+  `addressSection_city`; the real convention is `<group>--<field>`, giving
+  `legalName--firstName` and `address--city`, and the adapter built on the
+  invented names matched nothing whatsoever on a real page.
+
+  Three traps here, all of them real:
+
+  1. **Local name variants.** `legalName--firstNameLocal` is a second set of
+     boxes for a name written in a non-Latin script. A pattern for
+     `legalName--firstName` matches it too unless it refuses to.
+
+  2. **The phone block.** Four controls share the `phoneNumber--` prefix: the
+     number, the device type, the dial code and the extension. A plain
+     "phoneNumber" pattern claims all four, and conflict resolution then puts
+     the applicant's number in whichever it happens to sort first — on the live
+     form, the dial-code typeahead.
+
+  3. **countryPhoneCode vs country.** Both contain "country".
+
+  `data-automation-id` is absent from the controls themselves; the meaningful
+  names are in `id`, `name` and the wrapper. Labels really are associated with
+  `for` on this tenant.
+-->
+<div data-automation-id="applyFlowMyInfoPage">
+
+  <div data-automation-id="formField-candidateIsPreviousWorker">
+    <p>Have you previously worked for this company?</p>
+    <div data-automation-id="previousWorker--candidateIsPreviousWorker" role="radiogroup" aria-label="Have you previously worked for this company?">
+      <label for="nygk3">Yes</label>
+      <input type="radio" id="nygk3" name="candidateIsPreviousWorker" value="true" />
+      <label for="nygk4">No</label>
+      <input type="radio" id="nygk4" name="candidateIsPreviousWorker" value="false" />
+    </div>
+  </div>
+
+  <div data-automation-id="formField-country">
+    <label for="country--country">Country / Territory*</label>
+    <button id="country--country" name="country" aria-haspopup="listbox" aria-controls="country-list" aria-expanded="false">Select One</button>
+    <div id="country-list" role="listbox">
+      <div role="option">United Kingdom</div>
+      <div role="option">United States</div>
+    </div>
+  </div>
+
+  <div data-automation-id="formField-legalName--firstName">
+    <label for="name--legalName--firstName">Given Name(s)*</label>
+    <input type="text" id="name--legalName--firstName" name="legalName--firstName" />
+  </div>
+
+  <div data-automation-id="formField-legalName--middleName">
+    <label for="name--legalName--middleName">Middle Name</label>
+    <input type="text" id="name--legalName--middleName" name="legalName--middleName" />
+  </div>
+
+  <div data-automation-id="formField-legalName--lastName">
+    <label for="name--legalName--lastName">Family Name*</label>
+    <input type="text" id="name--legalName--lastName" name="legalName--lastName" />
+  </div>
+
+  <!-- For a legal name written in a non-Latin script. Not the profile's name. -->
+  <div data-automation-id="formField-legalName--firstNameLocal">
+    <label for="name--legalName--firstNameLocal">Local Given Name(s)</label>
+    <input type="text" id="name--legalName--firstNameLocal" name="legalName--firstNameLocal" />
+  </div>
+
+  <div data-automation-id="formField-legalName--lastNameLocal">
+    <label for="name--legalName--lastNameLocal">Local Family Name</label>
+    <input type="text" id="name--legalName--lastNameLocal" name="legalName--lastNameLocal" />
+  </div>
+
+  <div data-automation-id="formField-addressLine1">
+    <label for="address--addressLine1">Address Line 1</label>
+    <input type="text" id="address--addressLine1" name="addressLine1" />
+  </div>
+
+  <div data-automation-id="formField-city">
+    <label for="address--city">City</label>
+    <input type="text" id="address--city" name="city" />
+  </div>
+
+  <div data-automation-id="formField-postalCode">
+    <label for="address--postalCode">Postal Code</label>
+    <input type="text" id="address--postalCode" name="postalCode" />
+  </div>
+
+  <div data-automation-id="formField-phoneType">
+    <label for="phoneNumber--phoneType">Phone Device Type*</label>
+    <button id="phoneNumber--phoneType" name="phoneType" aria-haspopup="listbox" aria-controls="phone-type-list" aria-expanded="false">Select One</button>
+    <div id="phone-type-list" role="listbox">
+      <div role="option">Mobile</div>
+      <div role="option">Home</div>
+      <div role="option">Work</div>
+    </div>
+  </div>
+
+  <div data-automation-id="formField-countryPhoneCode">
+    <label for="phoneNumber--countryPhoneCode">Country / Territory Phone Code*</label>
+    <div data-automation-id="multiSelectContainer">
+      <div data-automation-id="multiselectInputContainer">
+        <input type="text" id="phoneNumber--countryPhoneCode" />
+      </div>
+    </div>
+  </div>
+
+  <div data-automation-id="formField-phoneNumber">
+    <label for="phoneNumber--phoneNumber">Phone Number*</label>
+    <input type="text" id="phoneNumber--phoneNumber" name="phoneNumber" />
+  </div>
+
+  <div data-automation-id="formField-extension">
+    <label for="phoneNumber--extension">Phone Extension</label>
+    <input type="text" id="phoneNumber--extension" name="extension" />
+  </div>
+
+</div>

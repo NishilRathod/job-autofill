@@ -111,17 +111,29 @@ describe("URL matching", () => {
 });
 
 describe("hintsFor", () => {
-  it("maps Workday's automation ids, which outlive its visible labels", () => {
+  it("maps Workday's field names, which outlive its visible labels", () => {
+    // These are the real names, read off a signed-in My Information step. The
+    // meaningful one is on the wrapper; the control itself carries no
+    // data-automation-id at all.
     const adapter = adapterFor("https://acme.myworkdayjobs.com/careers");
     const hints = adapter.hintsFor([
-      field("a", { automationId: "legalNameSection_firstName" }),
-      field("b", { automationId: "legalNameSection_lastName" }),
-      field("c", { automationId: "addressSection_postalCode" }),
+      field("a", { name: "legalName--firstName", id: "name--legalName--firstName" }),
+      field("b", { name: "legalName--lastName", id: "name--legalName--lastName" }),
+      field("c", { name: "postalCode", ancestorIds: ["formField-postalCode"] }),
     ]);
     expect(hints).toEqual({
       a: "identity.firstName",
       b: "identity.lastName",
       c: "address.postalCode",
+    });
+  });
+
+  it("matches Workday tenants that separate with an underscore", () => {
+    // An underscore is a word character, so a pattern built on  matches the
+    // "--" tenant and silently fails on the "_" one.
+    const adapter = adapterFor("https://acme.myworkdayjobs.com/careers");
+    expect(adapter.hintsFor([field("a", { name: "address_city" })])).toEqual({
+      a: "address.city",
     });
   });
 
@@ -184,6 +196,31 @@ describe("patterns are not over-broad", () => {
     ]);
     expect(hints.a).toBe("address.country");
     expect(hints.b).toBe("address.stateProvince");
+  });
+
+  it("keeps the phone number out of the other three phone controls", () => {
+    // On a live Workday form the number, the device type, the dial code and
+    // the extension all carry ids beginning "phoneNumber--". A plain
+    // "phoneNumber" pattern claimed every one of them.
+    const hints = adapterFor("https://acme.myworkdayjobs.com/careers").hintsFor([
+      field("a", { id: "phoneNumber--phoneType", name: "phoneType" }),
+      field("b", { id: "phoneNumber--countryPhoneCode" }),
+      field("c", { id: "phoneNumber--phoneNumber", name: "phoneNumber" }),
+      field("d", { id: "phoneNumber--extension", name: "extension" }),
+    ]);
+    expect(hints.c).toBe("identity.phone");
+    expect(hints.a).toBe("identity.phoneType");
+    expect(hints.b).toBeUndefined();
+    expect(hints.d).toBeUndefined();
+  });
+
+  it("does not treat a local-script name variant as the applicant's name", () => {
+    const hints = adapterFor("https://acme.myworkdayjobs.com/careers").hintsFor([
+      field("a", { name: "legalName--firstName" }),
+      field("b", { name: "legalName--firstNameLocal" }),
+    ]);
+    expect(hints.a).toBe("identity.firstName");
+    expect(hints.b).toBeUndefined();
   });
 
   it("does not claim a cover letter upload as the resume", () => {

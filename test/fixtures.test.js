@@ -636,3 +636,74 @@ describe("honeypots hidden by other means", () => {
     expect(descriptors.map((d) => d.name)).toEqual(["consent"]);
   });
 });
+
+describe("Workday My Information, from a signed-in form", () => {
+  let result;
+  beforeEach(() => {
+    const profile = fullProfile();
+    profile.identity.phoneType = "Mobile";
+    result = planFor(fixture("workday-myinfo.html"), {
+      profile,
+      url: "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job/x/apply/applyManually",
+    });
+  });
+
+  const forName = (name) => result.fills.find((f) => {
+    const d = result.descriptors.find((x) => x.fieldId === f.fieldId);
+    return d?.name === name || d?.id === name;
+  });
+
+  it.each([
+    ["legalName--firstName", "identity.firstName", "Ada"],
+    ["legalName--middleName", "identity.middleName", undefined],
+    ["legalName--lastName", "identity.lastName", "Lovelace"],
+    ["addressLine1", "address.line1", undefined],
+    ["city", "address.city", "London"],
+    ["postalCode", "address.postalCode", undefined],
+    ["phoneNumber", "identity.phone", "+1 555 123 4567"],
+  ])("places %s in %s", (name, path, value) => {
+    const fill = forName(name);
+    // Some of these have nothing saved in the shared profile; the point of the
+    // case is the path, and the value only when there is one.
+    if (value === undefined) {
+      expect(fill?.path ?? path).toBe(path);
+    } else {
+      expect(fill?.path).toBe(path);
+      expect(fill?.value).toBe(value);
+    }
+  });
+
+  it("keeps the applicant's number out of the dial-code box", () => {
+    // Four controls share the phoneNumber-- prefix. A plain "phoneNumber"
+    // pattern claimed all of them, and on the live form the number went to the
+    // Country / Territory Phone Code typeahead.
+    expect(forName("phoneNumber--countryPhoneCode")).toBeUndefined();
+    expect(forName("extension")).toBeUndefined();
+    expect(forName("phoneNumber")?.path).toBe("identity.phone");
+  });
+
+  it("tells the phone number apart from the phone device type", () => {
+    expect(forName("phoneType")?.path).toBe("identity.phoneType");
+  });
+
+  it("leaves the local-script name variants alone", () => {
+    // A second set of boxes for a name written in a non-Latin script. They are
+    // not the field the profile's first name belongs in.
+    expect(forName("legalName--firstNameLocal")).toBeUndefined();
+    expect(forName("legalName--lastNameLocal")).toBeUndefined();
+  });
+
+  it("tells country apart from country phone code", () => {
+    expect(forName("country")?.path).toBe("address.country");
+  });
+
+  it("reads the previous-employment question rather than its first answer", () => {
+    // The [role=radiogroup] container must not be collected alongside the
+    // radios it wraps: it has no options, and it won the path on document order.
+    const group = result.descriptors.filter((d) => /previousWorker/i.test(d.name + d.ancestorIds.join(" ")));
+    expect(group).toHaveLength(1);
+    expect(group[0].options).toEqual(["Yes", "No"]);
+    expect(group[0].label).toBe("Have you previously worked for this company?");
+    expect(forName("candidateIsPreviousWorker")?.path).toBe("screening.previouslyEmployedHere");
+  });
+});

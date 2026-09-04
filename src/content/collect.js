@@ -667,6 +667,15 @@ globalThis.JobFill = globalThis.JobFill || {};
       if (isHidden(element, style)) continue;
       if (isCollapsed(element, style)) continue;
 
+      // A [role=radiogroup] wrapping real radios is a container, not a control.
+      // Collected, it becomes a second descriptor for the same question — one
+      // with no options, which then wins the path on document order and leaves
+      // the question unanswered. The selector still earns its place for groups
+      // whose options are custom elements rather than inputs.
+      if (role === "radiogroup" && element.querySelector("input[type='radio'], input[type='checkbox']")) {
+        continue;
+      }
+
       const isGrouped = element.type === "radio" || element.type === "checkbox";
 
       // A group of options is one question, not one field per option.
