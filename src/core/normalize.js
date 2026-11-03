@@ -166,9 +166,12 @@ export function tokenize(input) {
   /** Expand through the synonym table and keep whatever survives. */
   const push = (word) => {
     for (const part of (SYNONYMS.get(word) ?? word).split(" ")) {
-      // Single letters are always debris — the "e" left by splitting "e-mail",
-      // or an initial from a mangled prefix. None of them identify a field.
-      if (part.length >= 2 && !STOP_WORDS.has(part)) tokens.push(part);
+      if (!part || STOP_WORDS.has(part)) continue;
+      // A single *letter* is debris — the "e" left by splitting "e-mail", or an
+      // initial from a mangled prefix — and identifies nothing. A single digit
+      // is the opposite: "Address Line 1" and "Address Line 2" are different
+      // fields, and the digit is the only thing that says which.
+      if (part.length >= 2 || /^\d$/.test(part)) tokens.push(part);
     }
   };
 
@@ -190,9 +193,14 @@ export function tokenize(input) {
       .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 
     for (const word of normalizeText(split).split(" ")) {
-      // Pure digits are index noise from repeated sections
-      // ("education_1_school"), not identity.
-      if (word && !/^\d+$/.test(word)) push(word);
+      // Digits used to be dropped here as index noise from repeated sections
+      // ("education_1_school"). They are noise there, but they are the entire
+      // signal in "Address Line 1", and dropping them made line 1 and line 2
+      // indistinguishable: the alias "address line 2" reduced to
+      // ["address","line"], matched "Address Line 1" exactly, and the street
+      // address went into the apartment field. An index digit costs nothing by
+      // comparison — it adds a token a rule simply never asks for.
+      if (word) push(word);
     }
   }
 

@@ -57,6 +57,26 @@ frameworks routinely put a generic id on the control and the meaningful one on
 the div around it, so a pattern written against the control alone matches
 nothing on a real page.
 
+Two deliberate departures from plain regex behaviour, both in
+[`src/adapters/index.js`](src/adapters/index.js):
+
+**`\b` means a separator boundary.** An underscore is a word character, so a
+literal `\b` matches `address--city` and `address.city` but silently fails on
+`address_city`. Every `\b` in this project was wrong that way until it was
+measured — 18 of 18 snake_case names matched nothing across five adapters, and
+the suite was green because the fixtures happened to use brackets and dots.
+`compilePattern` translates `\b` into a boundary that treats `_` as a
+separator, so write `\b` and it will do what you meant. Spell a lookaround out
+only when you need an asymmetric guard, as Workday's phone block does.
+
+**A hint still yields to the path's vetoes.** Hints outrank the heuristics, but
+not the safety net. `email` and `phone` are broad enough to match
+`confirm_email` and `emergency_phone`, so every hint is checked against what
+the field's *label* says before it is trusted — attribute names are yours to
+interpret, labels are what tell a reader whose field it is. A pattern can
+therefore be broad without being dangerous, and you do not need to re-encode
+"not the emergency contact" into it.
+
 ### When attributes carry no meaning
 
 Some systems name every field with an opaque record id — Lever's

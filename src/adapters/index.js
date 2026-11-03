@@ -16,21 +16,86 @@ import { RULE_BY_PATH } from "../core/rules.js";
 import { descriptorTokens, tokenCoverage } from "../core/normalize.js";
 
 /**
+ * Compile an adapter pattern, reading `\b` as a *separator* boundary.
+ *
+ * `\b` cannot be used literally against form field names, and the failure is
+ * silent. An underscore is a word character, so `\bcity\b` matches
+ * "address--city" and "address.city" but not "address_city" — and snake_case is
+ * the most common naming convention there is. Every `\b` in ats.js was wrong in
+ * the same way: 18 of 18 underscore-separated names matched nothing across five
+ * adapters, while the bracket- and dot-separated ones in the fixtures matched
+ * fine, so the tests were green.
+ *
+ * Rather than spell the lookarounds out forty times and rely on everyone
+ * remembering, `\b` is translated here. That keeps ats.js readable, makes the
+ * rule impossible to forget, and leaves one place to test.
+ *
+ * A `\b` is leading when it opens the pattern or an alternative, trailing
+ * otherwise. Patterns needing an asymmetric guard — Workday's phone block has
+ * to reject a trailing separator as well — still spell it out.
+ */
+export function compilePattern(pattern) {
+  let out = "";
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    if (pattern[index] !== "\\") {
+      out += pattern[index];
+      continue;
+    }
+
+    // Any other escape passes through whole, which also means an escaped
+    // backslash consumes its pair — so a literal "\\" before a "b" stays a
+    // literal backslash and a "b", rather than being read as a boundary.
+    if (pattern[index + 1] !== "b") {
+      out += pattern.slice(index, index + 2);
+      index += 1;
+      continue;
+    }
+
+    const previous = pattern[index - 1];
+    const leading = index === 0 || previous === "|" || previous === "(";
+    out += leading ? "(?<![A-Za-z0-9])" : "(?![A-Za-z0-9])";
+    index += 1; // the "b"
+  }
+
+  return new RegExp(out, "i");
+}
+
+/**
  * Whether a field is disqualified from a path by that path's own vetoes.
  *
- * Adapter hints deliberately outrank the heuristics, vetoes included: a
- * `selectors` entry names one exact attribute on one known site and is
- * hand-verified. A `questions` entry is not that. It matches prose, and prose
- * on an application form is full of near-misses — "Phone (Emergency Contact)"
- * begins with "Phone" as surely as the applicant's own field does. So question
- * matches keep the safety net that attribute matches can do without.
+ * Applied to every hint, selectors included. An earlier version exempted
+ * selectors on the grounds that each one names an exact attribute on a known
+ * site and is hand-verified — which is true of `job_application[resume]` and
+ * `legalName--firstName`, and not remotely true of `email` or `phone`. Those
+ * are generic heuristics wearing an adapter's authority, and on a long form
+ * they have a twin belonging to somebody else: `confirm_email`,
+ * `emergency_phone`, `supervisor_phone`, `reference_email`.
+ *
+ * The vetoes exist for exactly those twins, so a hint has to clear them. A
+ * genuinely site-specific selector passes anyway, because nothing disqualifying
+ * appears in its field's text.
  */
 function vetoed(path, descriptor) {
   const rule = RULE_BY_PATH.get(path);
   if (!rule?.veto.length) return false;
 
-  const { all } = descriptorTokens(descriptor);
-  return rule.veto.some((vetoTokens) => tokenCoverage(vetoTokens, all) === 1);
+  // Checked against what the field says to a reader — its label, placeholder
+  // and section — and not against the attribute names, which is what the
+  // adapter just matched on and is entitled to interpret.
+  //
+  // That distinction is load-bearing in both directions. Workday's
+  // state/province field is *named* `countryRegion`, and address.stateProvince
+  // vetoes "country" to stop a field labelled "Country / Region" becoming a
+  // state — so reading attribute names here would refuse the very field the
+  // selector was written for. Meanwhile every dangerous twin announces itself
+  // in its label: "Confirm email", "Emergency contact phone", "Supervisor
+  // phone", "Reference email". The label is both the safer signal and the
+  // honest one.
+  const { label, placeholder, context } = descriptorTokens(descriptor);
+  const visible = [...label, ...placeholder, ...context];
+
+  return rule.veto.some((vetoTokens) => tokenCoverage(vetoTokens, visible) === 1);
 }
 
 /**
@@ -79,7 +144,7 @@ export function adapterFor(url) {
       // adapter reading only the field's own attributes matches nothing on a
       // real page while still passing a simplified fixture.
       for (const [pattern, path] of Object.entries(adapter.selectors ?? {})) {
-        const test = new RegExp(pattern, "i");
+        const test = compilePattern(pattern);
         for (const descriptor of descriptors) {
           const haystack = [
             descriptor.name,
@@ -87,9 +152,10 @@ export function adapterFor(url) {
             descriptor.automationId ?? "",
             ...(descriptor.ancestorIds ?? []),
           ].join(" ");
-          if (test.test(haystack) && !hints[descriptor.fieldId]) {
-            hints[descriptor.fieldId] = path;
-          }
+          if (hints[descriptor.fieldId]) continue;
+          if (!test.test(haystack)) continue;
+          if (vetoed(path, descriptor)) continue;
+          hints[descriptor.fieldId] = path;
         }
       }
 
@@ -99,12 +165,10 @@ export function adapterFor(url) {
       // label is the only thing that identifies a field, and matching it
       // per-site is safer than loosening the global rules for everyone.
       for (const [pattern, path] of Object.entries(adapter.questions ?? {})) {
-        const test = new RegExp(pattern, "i");
+        const test = compilePattern(pattern);
         for (const descriptor of descriptors) {
           if (hints[descriptor.fieldId]) continue;
           if (!test.test(descriptor.label ?? "")) continue;
-          // Unlike a selector, a question match is a guess about prose, so it
-          // has to clear the same vetoes a heuristic match would.
           if (vetoed(path, descriptor)) continue;
           hints[descriptor.fieldId] = path;
         }

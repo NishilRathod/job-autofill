@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { adapterFor, adapterNames } from "../src/adapters/index.js";
+import { adapterFor, adapterNames, compilePattern } from "../src/adapters/index.js";
 import { ATS_ADAPTERS } from "../src/adapters/ats.js";
 import { FIELD_BY_PATH } from "../src/core/schema.js";
 
@@ -259,5 +259,99 @@ describe("question patterns and the safety net", () => {
       f2: "identity.email",
       f3: "preferences.currentSalary",
     });
+  });
+});
+
+describe("pattern compilation", () => {
+  it("reads a word boundary as a separator boundary", () => {
+    // `\b` cannot be used literally against form field names: an underscore is
+    // a word character, so "\bcity\b" matches "address--city" and
+    // "address.city" but silently fails on "address_city". Every \b in ats.js
+    // was wrong this way, and the fixtures happened to use bracket- and
+    // dot-separated names, so the suite stayed green over it.
+    const city = compilePattern("\\bcity\\b");
+    expect(city.test("address_city")).toBe(true);
+    expect(city.test("address--city")).toBe(true);
+    expect(city.test("location.city")).toBe(true);
+    expect(city.test("city")).toBe(true);
+    // Still a boundary: a fragment of a longer word must not match.
+    expect(city.test("addresscity")).toBe(false);
+    expect(city.test("cityscape")).toBe(false);
+  });
+
+  it("places the boundary correctly on each side of an alternation", () => {
+    const org = compilePattern("\\borg\\b|\\borg-input\\b");
+    expect(org.test("applicant_org")).toBe(true);
+    expect(org.test("org-input")).toBe(true);
+    expect(org.test("organisation")).toBe(false);
+  });
+
+  it("does not mistake an escaped backslash for a boundary", () => {
+    // "\\\\b" is a literal backslash followed by a b, not a word boundary.
+    // Nothing in ats.js needs that today, which is exactly why it would go
+    // unnoticed if this function got it wrong later.
+    const literal = compilePattern("a\\\\bc");
+    expect(literal.source).toBe("a\\\\bc");
+    expect(literal.test("a\\bc")).toBe(true);
+  });
+
+  it("leaves everything other than a boundary alone", () => {
+    const resume = compilePattern("job_application\\[resume\\]|\\bresume\\b");
+    expect(resume.test("job_application[resume]")).toBe(true);
+    expect(resume.test("my_resume")).toBe(true);
+    expect(resume.source).toContain("job_application\\[resume\\]");
+  });
+});
+
+describe("snake_case field names", () => {
+  // The convention every one of these adapters was blind to.
+  it.each([
+    ["https://acme.workable.com/x", "applicant_firstname", "identity.firstName"],
+    ["https://acme.workable.com/x", "candidate_email", "identity.email"],
+    ["https://acme.workable.com/x", "contact_phone", "identity.phone"],
+    ["https://acme.icims.com/x", "base_lastname", "identity.lastName"],
+    ["https://jobs.smartrecruiters.com/x", "location_city", "address.city"],
+    ["https://acme.bamboohr.com/x", "personal_website", "links.website"],
+    ["https://jobs.lever.co/x", "applicant_org", "work.company"],
+  ])("%s matches %s", (url, name, path) => {
+    const hints = adapterFor(url).hintsFor([field("a", { name })]);
+    expect(hints.a).toBe(path);
+  });
+});
+
+describe("hints yield to a veto", () => {
+  // A selector naming one exact attribute on one known site is hand-verified
+  // and earns its authority. "email" and "phone" are not that — they are
+  // generic heuristics wearing an adapter's badge, and on a long form each has
+  // a twin belonging to somebody else.
+  it.each([
+    ["https://acme.workable.com/x", "confirm_email", "Confirm email"],
+    ["https://acme.workable.com/x", "emergency_phone", "Emergency contact phone"],
+    ["https://acme.bamboohr.com/x", "reference_email", "Reference email"],
+    ["https://acme.bamboohr.com/x", "supervisor_phone", "Supervisor phone"],
+    ["https://acme.bamboohr.com/x", "company_website", "Company website"],
+  ])("refuses %s named %s", (url, name, label) => {
+    const hints = adapterFor(url).hintsFor([field("a", { name, label })]);
+    expect(hints.a).toBeUndefined();
+  });
+
+  it("still matches the legitimate field beside the twin", () => {
+    const hints = adapterFor("https://acme.workable.com/x").hintsFor([
+      field("a", { name: "confirm_email", label: "Confirm email" }),
+      field("b", { name: "candidate_email", label: "Email" }),
+    ]);
+    expect(hints.a).toBeUndefined();
+    expect(hints.b).toBe("identity.email");
+  });
+
+  it("reads the veto off the label, not off the attribute the selector matched", () => {
+    // Workday's state/province field is named `countryRegion`, and
+    // address.stateProvince vetoes "country" to keep a field labelled
+    // "Country / Region" from becoming a state. Reading attribute names here
+    // would refuse the very field the selector exists for.
+    const hints = adapterFor("https://acme.myworkdayjobs.com/x").hintsFor([
+      field("a", { automationId: "addressSection_countryRegion" }),
+    ]);
+    expect(hints.a).toBe("address.stateProvince");
   });
 });

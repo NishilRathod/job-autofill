@@ -1,14 +1,22 @@
 <!--
-  A Workday-style form, reconstructed to reproduce the two things that make
-  Workday hard rather than any real posting:
+  A form in the *shape* that makes Workday hard, not a reproduction of one.
 
-    1. Labels are sibling <div>s with no `for` attribute and no aria-labelledby.
-       A collector that only understands <label for> sees an unlabelled form.
-    2. Dropdowns are <button aria-haspopup="listbox">, not <select>. A collector
-       that only queries input/select/textarea misses them entirely.
+  Read workday-myinfo.html for what Workday actually serves: this file was
+  hand-written before anyone had seen a signed-in form, and two of its
+  assumptions turned out to be wrong. Real Workday associates its labels with
+  `for`, and names fields `legalName--firstName`, not the
+  `legalNameSection_firstName` invented here. The adapter was built on those
+  invented names and matched nothing at all on a live page.
 
-  Also covers repeated employment blocks and an education block whose date
-  fields carry labels identical to the employment ones.
+  It is kept, renamed in spirit, because the shape it exercises is real and
+  common across other systems, and no other fixture covers it:
+
+    1. Labels as sibling <div>s with no `for` and no aria-labelledby, so the
+       collector has to find them by walking the tree.
+    2. Dropdowns as <button aria-haspopup="listbox"> rather than <select>.
+    3. Repeated employment blocks, and an education block whose date fields
+       carry labels identical to the employment ones — so the only thing
+       telling them apart is the surrounding heading.
 -->
 <div data-automation-id="applicationPage">
   <h2>My Information</h2>

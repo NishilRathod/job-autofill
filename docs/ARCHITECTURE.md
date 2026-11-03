@@ -147,3 +147,30 @@ Three mechanisms, in increasing order of how hard they are to defeat:
 
 If you are reviewing this extension before trusting it with your data, item 3 is the
 one that does not depend on us being careful.
+
+## What must not be filled
+
+Privacy is about data leaving. This is the other half: a wrong value written into a
+form the user is about to submit under their own name. Three mechanisms, each added
+after the engine got one of them wrong.
+
+**Vetoes** (`src/core/rules.js`). A long application form is full of near-misses —
+"Confirm email", "Emergency contact first name", "Supervisor phone". A veto
+disqualifies a field from a path however well it otherwise scores, and it applies to
+adapter hints too, not just to the heuristics. Two invariants hold it up: every signal
+the scorer can match on is in the veto haystack (both come from one call to
+`descriptorTokens`, so a new signal is covered automatically), and a signal too weak
+to fill a field on its own cannot be lifted over the line by another weak one — the
+corroboration bonus requires the label or the field's own name among the agreeing
+parts.
+
+**Honeypots** (`src/content/collect.js`). Workday ships a bot trap on every apply
+flow: an `<input name="website">` labelled "This input is for robots only, do not
+enter if you're human", hidden with `clip` and a 1px box rather than `display: none`
+precisely so a script still finds it. Filling it marks the submission as a bot and the
+application is discarded unread — a silent failure that looks like success. `isCollapsed`
+drops controls clipped to nothing, sized to a pixel or parked off-screen, exempting
+file, checkbox and radio inputs because those are legitimately zero-sized.
+
+**Credentials.** Password inputs are never collected. These flows sit behind account
+creation, so one genuinely appears mid-application, and nothing here should go near it.

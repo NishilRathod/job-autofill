@@ -560,3 +560,40 @@ describe("adapter hints for repeating fields", () => {
     expect(valueOf(result, "second")).toBe("Difference Engines");
   });
 });
+
+describe("address line 1 and line 2", () => {
+  // These were indistinguishable. `tokenize` dropped pure digits, so the alias
+  // "address line 2" reduced to ["address","line"] and matched a label of
+  // "Address Line 1" exactly, while address.line1's veto of "line 2" reduced to
+  // ["line"] and disqualified anything whose label contained the word. Every
+  // form labelling its street field "Address Line 1" — which is most of them —
+  // put the apartment in it and left the street address blank.
+  const profile = () => testProfile({ address: { line1: "12 Analytical Way", line2: "Flat 3" } });
+
+  it.each([
+    ["Address Line 1", "address.line1", "12 Analytical Way"],
+    ["Address line 1", "address.line1", "12 Analytical Way"],
+    ["Address Line 2", "address.line2", "Flat 3"],
+    ["Street Address", "address.line1", "12 Analytical Way"],
+  ])("puts %s in %s", (label, path, value) => {
+    const result = run([{ fieldId: "a", label }], { profile: profile() });
+    expect(pathOf(result, "a")).toBe(path);
+    expect(valueOf(result, "a")).toBe(value);
+  });
+
+  it("fills both lines of a two-line address on one form", () => {
+    const result = run([
+      { fieldId: "one", label: "Address Line 1" },
+      { fieldId: "two", label: "Address Line 2" },
+    ], { profile: profile() });
+    expect(valueOf(result, "one")).toBe("12 Analytical Way");
+    expect(valueOf(result, "two")).toBe("Flat 3");
+  });
+
+  it("still treats an index digit in a generated name as noise", () => {
+    // Digits are kept now, so a rule must not start needing them: the index in
+    // "education_1_school" is not part of what the field is.
+    const result = run([{ fieldId: "s", label: "", name: "education_1_school" }]);
+    expect(pathOf(result, "s")).toBe("education.0.school");
+  });
+});

@@ -23,6 +23,19 @@
  *     `cards[<uuid>][field7]`, Zoho's `rec-form_<digits>` — where the rendered
  *     question is the only thing identifying a field. Prefer `selectors`:
  *     labels are localised and re-worded, attributes usually are not.
+ *
+ * Two things about these patterns are not standard regex behaviour, both
+ * implemented in index.js:
+ *
+ *   - **`\b` means a separator boundary, not a word boundary.** An underscore
+ *     is a word character, so a literal `\b` matches "address--city" and
+ *     "address.city" but silently fails on "address_city" — and snake_case is
+ *     the commonest convention there is. `compilePattern` translates it. Use
+ *     `\b` freely; spell out a lookaround only for an asymmetric guard.
+ *   - **A hint still yields to the path's vetoes.** `email` and `phone` are
+ *     generic enough to hit "confirm_email" and "emergency_phone", so a match
+ *     is checked against what the field's *label* says before it is trusted.
+ *     This means a pattern may be broad without being dangerous.
  */
 
 /** @type {Array<{name: string, match: RegExp, selectors?: Record<string,string>, questions?: Record<string,string>}>} */
@@ -60,34 +73,31 @@ export const ATS_ADAPTERS = [
   name: "Workday",
   match: /\.myworkdayjobs\.com|\.workday\.com/i,
   selectors: {
-    // `\b` is not usable here. Workday separates with "--" on the tenant this
-    // was read from and with "_" on others, and an underscore is a *word*
-    // character — so "\\bcity\\b" matches "address--city" while silently
-    // failing on "address_city". These lookarounds treat both as separators.
-    //
-    // They also carry the disambiguation: firstName must not match
-    // firstNameLocal (a second set of boxes for a name written in a non-Latin
-    // script), and country must not match countryPhoneCode.
-    "legalName[-_]+firstName(?![A-Za-z0-9])": "identity.firstName",
-    "legalName[-_]+middleName(?![A-Za-z0-9])": "identity.middleName",
-    "legalName[-_]+lastName(?![A-Za-z0-9])": "identity.lastName",
-    "preferredName[-_]+firstName(?![A-Za-z0-9])": "identity.preferredName",
-    "(?<![A-Za-z0-9])email(?![A-Za-z0-9])(?!.*confirm)": "identity.email",
+    // The trailing boundary is what keeps firstName off firstNameLocal — a
+    // second set of boxes for a name written in a non-Latin script.
+    "legalName[-_]+firstName\\b": "identity.firstName",
+    "legalName[-_]+middleName\\b": "identity.middleName",
+    "legalName[-_]+lastName\\b": "identity.lastName",
+    "preferredName[-_]+firstName\\b": "identity.preferredName",
+    "\\bemail\\b(?!.*confirm)": "identity.email",
 
     // The phone block is four controls whose ids all begin "phoneNumber--":
     // the number, the device type, the dial code and the extension. A pattern
     // of plain "phoneNumber" matches every one of them, and the number then
     // lands in whichever the sort happens to pick — on the live form, the
-    // dial-code typeahead. Refusing a trailing separator keeps this on the
-    // field that is only ever the number.
+    // dial-code typeahead. Refusing a trailing *separator* as well as a
+    // trailing letter keeps this on the field that is only ever the number,
+    // which is more than `\b` can say, hence the explicit guard.
     "(?<![A-Za-z0-9])phone[-_]?number(?![A-Za-z0-9_-])": "identity.phone",
-    "(?<![A-Za-z0-9])phone[-_]?type(?![A-Za-z0-9])": "identity.phoneType",
+    "\\bphone[-_]?type\\b": "identity.phoneType",
 
-    "(?<![A-Za-z0-9])addressLine1(?![A-Za-z0-9])": "address.line1",
-    "(?<![A-Za-z0-9])addressLine2(?![A-Za-z0-9])": "address.line2",
-    "(?<![A-Za-z0-9])city(?![A-Za-z0-9])": "address.city",
-    "(?<![A-Za-z0-9])postalCode(?![A-Za-z0-9])": "address.postalCode",
-    "(?<![A-Za-z0-9])countryRegion(?![A-Za-z0-9])": "address.stateProvince",
+    "\\baddressLine1\\b": "address.line1",
+    "\\baddressLine2\\b": "address.line2",
+    "\\bcity\\b": "address.city",
+    "\\bpostalCode\\b": "address.postalCode",
+    "\\bcountryRegion\\b": "address.stateProvince",
+    // Same asymmetry as the phone number: "country" must not take
+    // countryPhoneCode, under either separator convention.
     "(?<![A-Za-z0-9])country(?![A-Za-z0-9_-])": "address.country",
 
     "candidateIsPreviousWorker": "screening.previouslyEmployedHere",
