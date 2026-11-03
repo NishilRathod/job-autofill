@@ -60,6 +60,17 @@ globalThis.JobFill = globalThis.JobFill || {};
   /** Wrappers whose contents are a control's own chrome rather than its label. */
   const INTERACTIVE = /^(a|button)$/i;
 
+  /**
+   * Anything that makes an element another field's block rather than a label.
+   *
+   * Wider than the collector's own SELECTOR on purpose: a dropdown's rendered
+   * option list counts, because Workday's degree picker is a `<button>` beside
+   * a `[role=listbox]` of `[role=option]` divs, and a block holding that is the
+   * degree field — not the label of whatever follows it.
+   */
+  const CONTROL_SELECTOR =
+    "input, select, textarea, button, [role='combobox'], [role='listbox'], [role='option'], [contenteditable='true']";
+
   /** Class and data-attribute values that mark a node as naming a field. */
   const LABELISH = /(^|[\s_-])(label|question|prompt|caption)([\s_-]|$)/i;
 
@@ -284,6 +295,15 @@ globalThis.JobFill = globalThis.JobFill || {};
 
         const labelish = looksLikeLabelContainer(child);
         if (labelishOnly && !labelish) continue;
+
+        // A block with a control of its own is another field, not our label.
+        // Workday's My Experience step has four unlabelled date sub-inputs and
+        // two unlabelled file inputs; without this they each adopt the whole
+        // preceding field's block, so the start-date boxes come back called
+        // "I currently work here" and the resume upload "Type to Add Skills".
+        // `visibleText` strips the controls out, which is exactly what makes
+        // the wrong answer look like a clean one.
+        if (child.querySelector?.(CONTROL_SELECTOR)) continue;
 
         const text = visibleText(child);
         if (!text || isJunkLabel(text)) continue;

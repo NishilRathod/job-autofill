@@ -76,6 +76,7 @@ function planFor(html, { profile = fullProfile(), settings = {}, url } = {}) {
       profile,
       settings: { ...defaultSettings(), ...settings },
       adapterHints: adapter?.hintsFor(descriptors) ?? {},
+      adapterExcludes: adapter?.excludedFrom(descriptors) ?? [],
     }),
   };
 }
@@ -705,5 +706,116 @@ describe("Workday My Information, from a signed-in form", () => {
     expect(group[0].options).toEqual(["Yes", "No"]);
     expect(group[0].label).toBe("Have you previously worked for this company?");
     expect(forName("candidateIsPreviousWorker")?.path).toBe("screening.previouslyEmployedHere");
+  });
+});
+
+describe("Workday My Experience, from a signed-in form", () => {
+  let result;
+  beforeEach(() => {
+    const profile = fullProfile();
+    Object.assign(profile.work[0], {
+      title: "Principal Engineer", company: "Analytical Engines",
+      location: "London", description: "Did things", currentlyWorking: "Yes",
+    });
+    Object.assign(profile.education[0], { degree: "Bachelor's Degree" });
+    profile.certifications[0] = { ...profile.certifications[0], name: "AWS SA", credentialId: "ABC-123" };
+    profile.skills.skills = ["JavaScript"];
+    profile.links.website = "https://ada.example.com";
+    result = planFor(fixture("workday-myexperience.html"), {
+      profile,
+      url: "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job/x/apply/applyManually",
+    });
+  });
+
+  const forId = (id) => result.fills.find((f) => {
+    const d = result.descriptors.find((x) => x.fieldId === f.fieldId);
+    return d?.id === id;
+  });
+
+  it.each([
+    ["workExperience-430--jobTitle", "work.0.title"],
+    ["workExperience-430--companyName", "work.0.company"],
+    ["workExperience-430--location", "work.0.location"],
+    ["workExperience-430--currentlyWorkHere", "work.0.currentlyWorking"],
+    ["workExperience-430--roleDescription", "work.0.description"],
+    ["education-439--school", "education.0.school"],
+    ["education-439--degree", "education.0.degree"],
+    ["education-439--fieldOfStudy", "education.0.fieldOfStudy"],
+    ["certification-440--certification", "certifications.0.name"],
+    ["certification-440--certificationNumber", "certifications.0.credentialId"],
+    ["skills--skills", "skills.skills"],
+    ["webAddress-447--url", "links.website"],
+    ["socialNetworkAccounts--linkedInAccount", "links.linkedin"],
+  ])("places #%s in %s", (id, path) => {
+    // The id carries a random instance number, so a pattern of
+    // "workExperience--jobTitle" matches nothing. These are keyed on the bare
+    // name and the wrapper instead.
+    expect(forId(id)?.path).toBe(path);
+  });
+
+  it("does not confuse the certification with its number", () => {
+    expect(forId("certification-440--certification")?.path).toBe("certifications.0.name");
+    expect(forId("certification-440--certificationNumber")?.path).toBe("certifications.0.credentialId");
+  });
+
+  it("leaves a split date control alone", () => {
+    // Dates arrive as separate month and year inputs with no labels of their
+    // own. Writing an ISO date into a two-digit month box would be worse than
+    // leaving it, so these wait for the fill layer to understand them.
+    const parts = result.descriptors.filter((d) => /dateSection/.test(d.automationId));
+    expect(parts).toHaveLength(4);
+    expect(parts.every((d) => !result.fills.some((f) => f.fieldId === d.fieldId))).toBe(true);
+  });
+
+  it("does not guess between two identical file inputs", () => {
+    // Both are file-upload-input-ref inside attachments-FileUpload/formField-,
+    // with no name, id or label. Only the heading above them differs, and a
+    // heading is sectionText, which an adapter cannot see. Attaching to the
+    // wrong one would look like success and submit without a resume.
+    const files = result.descriptors.filter((d) => d.type === "file");
+    expect(files).toHaveLength(2);
+    expect(result.fills.some((f) => f.path === "documents.resume")).toBe(false);
+  });
+});
+
+describe("a label belongs to one field", () => {
+  it("does not let an unlabelled control adopt the previous field's label", () => {
+    // Workday's date sub-inputs and file inputs have no label of their own, and
+    // the sibling scan happily took the whole preceding field's block — whose
+    // controls `visibleText` strips out, so the wrong answer looked clean. The
+    // start-date boxes came back called "I currently work here".
+    const { descriptors } = planFor(`
+      <div data-automation-id="applyFlowMyExpPage">
+        <div data-automation-id="formField-currentlyWorkHere">
+          <label for="chk">I currently work here</label>
+          <input type="checkbox" id="chk" name="currentlyWorkHere" />
+        </div>
+        <div data-automation-id="formField-startDate">
+          <div><input type="text" name="" data-automation-id="dateSectionMonth-input" /></div>
+        </div>
+      </div>
+    `);
+    const month = descriptors.find((d) => d.automationId === "dateSectionMonth-input");
+    expect(month.label).toBe("");
+  });
+
+  it("treats a rendered option list as part of its own field", () => {
+    // Workday's degree picker is a <button> beside a [role=listbox] of
+    // [role=option] divs. A block holding that is the degree field, not the
+    // label of whatever comes next.
+    const { descriptors } = planFor(`
+      <div data-automation-id="applyFlowMyExpPage">
+        <div data-automation-id="formField-degree">
+          <label for="deg">Degree</label>
+          <button id="deg" name="degree" aria-haspopup="listbox" aria-controls="dl">Select One</button>
+          <div id="dl" role="listbox"><div role="option">Bachelor's Degree</div></div>
+        </div>
+        <div data-automation-id="formField-">
+          <div data-automation-id="attachments-FileUpload"><input type="file" data-automation-id="file-upload-input-ref" /></div>
+        </div>
+      </div>
+    `);
+    const upload = descriptors.find((d) => d.type === "file");
+    expect(upload.label).toBe("");
   });
 });

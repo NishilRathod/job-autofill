@@ -597,3 +597,51 @@ describe("address line 1 and line 2", () => {
     expect(pathOf(result, "s")).toBe("education.0.school");
   });
 });
+
+describe("vetoes that a stop word would collapse", () => {
+  it("can fill a field labelled Location in a work section", () => {
+    // work.location vetoed "your location", which tokenised to ["location"]
+    // because "your" is a stop word — so it disqualified every field labelled
+    // "Location", the only label the field ever has. work.location and
+    // education.location could not be filled at all.
+    const profile = testProfile();
+    profile.work[0] = { ...profile.work[0], location: "London" };
+
+    const result = run(
+      [{ fieldId: "loc", label: "Location", sectionText: "Work Experience" }],
+      { profile }
+    );
+    expect(pathOf(result, "loc")).toBe("work.0.location");
+    expect(valueOf(result, "loc")).toBe("London");
+  });
+
+  it("still keeps the applicant's own location out of the work one", () => {
+    // "current location" survives tokenising intact and does the work the
+    // broken phrase was meant to.
+    const result = run([{ fieldId: "mine", label: "Current location", sectionText: "Work Experience" }]);
+    expect(pathOf(result, "mine")).not.toBe("work.0.location");
+  });
+});
+
+describe("adapter exclusions", () => {
+  it("leaves an excluded field alone and says so", () => {
+    const result = run(
+      [{ fieldId: "month", label: "", id: "workExperience-430--endDate-dateSectionMonth-input" }],
+      { adapterExcludes: ["month"] }
+    );
+    expect(pathOf(result, "month")).toBeUndefined();
+    expect(result.skipped.find((s) => s.fieldId === "month")?.reason).toMatch(/splits this field/i);
+  });
+
+  it("would otherwise have filled it, which is the point", () => {
+    // Without the exclusion the month box scores on its own id — the name
+    // genuinely does say endDate — and receives the whole date.
+    const profile = testProfile();
+    const result = run(
+      [{ fieldId: "month", label: "", id: "workExperience-430--endDate-dateSectionMonth-input",
+         sectionText: "Work Experience" }],
+      { profile }
+    );
+    expect(pathOf(result, "month")).toBe("work.0.endDate");
+  });
+});

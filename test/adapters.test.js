@@ -355,3 +355,28 @@ describe("hints yield to a veto", () => {
     expect(hints.a).toBe("address.stateProvince");
   });
 });
+
+describe("exclusions", () => {
+  it("names the split-date boxes Workday cannot be filled through", () => {
+    // Hints can only add a mapping, so without `exclude` there is no way to
+    // say "leave this alone". The month box's id contains "endDate", so it
+    // scores on its own name and would take the whole date string.
+    const excluded = adapterFor("https://acme.myworkdayjobs.com/x").excludedFrom([
+      field("a", { id: "workExperience-430--endDate-dateSectionMonth-input", automationId: "dateSectionMonth-input" }),
+      field("b", { id: "workExperience-430--endDate-dateSectionYear-input", automationId: "dateSectionYear-input" }),
+      field("c", { id: "workExperience-430--jobTitle", name: "jobTitle" }),
+    ]);
+    expect(excluded).toEqual(["a", "b"]);
+  });
+
+  it("is empty for an adapter that declares none", () => {
+    expect(adapterFor("https://boards.greenhouse.io/x/jobs/1").excludedFrom([field("a", { name: "email" })]))
+      .toEqual([]);
+  });
+
+  it.each(
+    ATS_ADAPTERS.flatMap((a) => (a.exclude ?? []).map((p) => [a.name, p]))
+  )("%s exclusion %s compiles", (_name, pattern) => {
+    expect(() => compilePattern(pattern)).not.toThrow();
+  });
+});

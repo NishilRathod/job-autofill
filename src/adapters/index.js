@@ -119,8 +119,42 @@ export function adapterFor(url) {
   const adapter = ADAPTERS.find((candidate) => candidate.match.test(url ?? ""));
   if (!adapter) return null;
 
+  /** The string a selector pattern is tested against. */
+  const attributesOf = (descriptor) => [
+    descriptor.name,
+    descriptor.id,
+    descriptor.automationId ?? "",
+    ...(descriptor.ancestorIds ?? []),
+  ].join(" ");
+
   return {
     name: adapter.name,
+
+    /**
+     * Fields this site renders that JobFill must not write into.
+     *
+     * Hints can only ever *add* a mapping, so without this there is no way to
+     * say "leave this one alone". Workday needs it: a date on My Experience is
+     * three separate boxes, and the month box's own id contains "endDate", so
+     * it scores 75 on the name and receives the whole date string — "2024-01"
+     * typed into a two-digit month field. Scoring it lower would not help,
+     * because the name genuinely does say endDate; the problem is that the
+     * control holds one part of a value this engine can only produce whole.
+     *
+     * Reserved for controls that cannot be filled correctly, not for ones that
+     * merely risk a wrong guess — vetoes handle those.
+     *
+     * @param {object[]} descriptors
+     * @returns {string[]} fieldIds to leave untouched
+     */
+    excludedFrom(descriptors) {
+      const patterns = (adapter.exclude ?? []).map(compilePattern);
+      if (!patterns.length) return [];
+
+      return descriptors
+        .filter((descriptor) => patterns.some((test) => test.test(attributesOf(descriptor))))
+        .map((descriptor) => descriptor.fieldId);
+    },
 
     /**
      * Map fieldIds to canonical paths for this page.
@@ -146,13 +180,8 @@ export function adapterFor(url) {
       for (const [pattern, path] of Object.entries(adapter.selectors ?? {})) {
         const test = compilePattern(pattern);
         for (const descriptor of descriptors) {
-          const haystack = [
-            descriptor.name,
-            descriptor.id,
-            descriptor.automationId ?? "",
-            ...(descriptor.ancestorIds ?? []),
-          ].join(" ");
           if (hints[descriptor.fieldId]) continue;
+          const haystack = attributesOf(descriptor);
           if (!test.test(haystack)) continue;
           if (vetoed(path, descriptor)) continue;
           hints[descriptor.fieldId] = path;

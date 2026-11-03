@@ -303,14 +303,29 @@ function concretePath(path, descriptor) {
  *   unmatched: Array<{fieldId: string, label: string, signature: string}>
  * }}
  */
-export function match({ descriptors, profile, settings, learned = {}, adapterHints = {} }) {
+export function match({
+  descriptors, profile, settings, learned = {}, adapterHints = {}, adapterExcludes = [],
+}) {
   const threshold = settings?.confidenceThreshold ?? 55;
+  const excluded = new Set(adapterExcludes);
   const candidates = [];
   const skipped = [];
   const unmatched = [];
 
   for (const descriptor of descriptors) {
     if (descriptor.disabled) continue;
+
+    // The site adapter knows this control cannot be filled correctly — one box
+    // of a split date, say. Reported rather than dropped, so the preview says
+    // plainly that it was left for the user.
+    if (excluded.has(descriptor.fieldId)) {
+      skipped.push({
+        fieldId: descriptor.fieldId,
+        label: descriptor.label || descriptor.ariaLabel || descriptor.name || "(unlabelled)",
+        reason: "Left for you — this site splits this field across boxes JobFill can't fill",
+      });
+      continue;
+    }
 
     const label =
       descriptor.label || descriptor.ariaLabel || descriptor.placeholder || descriptor.name || "(unlabelled)";

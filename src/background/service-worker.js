@@ -95,6 +95,7 @@ async function buildPlan(tab) {
     settings: state.settings,
     learned,
     adapterHints: adapter?.hintsFor(page.descriptors) ?? {},
+    adapterExcludes: adapter?.excludedFrom(page.descriptors) ?? [],
   });
 
   // Turn each match into a concrete instruction for the control it targets.

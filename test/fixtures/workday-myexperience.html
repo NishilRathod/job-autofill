@@ -1,0 +1,159 @@
+<!--
+  Workday's "My Experience" step (step 2 of 6), reproduced from a dump of a
+  live signed-in form on workday.wd5.myworkdayjobs.com.
+
+  Every work-experience and education pattern in the adapter was a guess before
+  this, and every one of them was wrong. Four things this file exists to pin
+  down:
+
+  1. **Instance ids carry a random number, not an index.** The field is
+     `workExperience-430--jobTitle`, not `workExperience--jobTitle`. A pattern
+     of `workExperience[-_]+jobTitle` cannot match, because `[-_]+` does not
+     span digits — so all six guessed patterns matched nothing. The usable
+     signals are the bare `name` ("jobTitle") and the wrapper
+     ("formField-jobTitle"), exactly as on My Information.
+
+  2. **The sections start collapsed.** On a fresh application the page has
+     three fields; Work Experience, Education, Certifications and Websites are
+     behind "Add" buttons and their inputs do not exist in the DOM until
+     clicked. Nothing can fill what is not rendered. This fixture shows the
+     expanded state, which is what a user who has clicked Add will have.
+
+  3. **Dates are split into separate month/year inputs with no labels** —
+     `…--startDate-dateSectionMonth-input`, wrapped in
+     `dateInputWrapper` / `formField-startDate`. Writing an ISO date into a
+     two-digit month box would be wrong, so these are deliberately left
+     unmapped until the fill layer can address a split control.
+
+  4. **Two file inputs, byte-identical.** Both are
+     `data-automation-id="file-upload-input-ref"` inside
+     `attachments-FileUpload` / `formField-` with no name, no id and no label.
+     Only the heading above them differs ("Resume/CV" versus nothing), and a
+     heading is `sectionText`, which selectors and questions cannot see. So the
+     resume upload on this step is not addressable by an adapter, which is why
+     `file-upload-input-ref` stays excluded.
+-->
+<div data-automation-id="applyFlowPage">
+<div data-automation-id="applyFlowMyExpPage">
+  <h2>My Experience</h2>
+
+  <h3>Work Experience</h3>
+  <div data-automation-id="formField-jobTitle">
+    <label for="workExperience-430--jobTitle">Job Title*</label>
+    <input type="text" id="workExperience-430--jobTitle" name="jobTitle" />
+  </div>
+  <div data-automation-id="formField-companyName">
+    <label for="workExperience-430--companyName">Company*</label>
+    <input type="text" id="workExperience-430--companyName" name="companyName" />
+  </div>
+  <div data-automation-id="formField-location">
+    <label for="workExperience-430--location">Location</label>
+    <input type="text" id="workExperience-430--location" name="location" />
+  </div>
+  <div data-automation-id="formField-currentlyWorkHere">
+    <label for="workExperience-430--currentlyWorkHere">I currently work here</label>
+    <input type="checkbox" id="workExperience-430--currentlyWorkHere" name="currentlyWorkHere" />
+  </div>
+  <div data-automation-id="formField-startDate">
+    <div data-automation-id="dateInputWrapper">
+      <div data-automation-id="workExperience-430--startDate-dateSectionMonth">
+        <input type="text" id="workExperience-430--startDate-dateSectionMonth-input" data-automation-id="dateSectionMonth-input" />
+      </div>
+      <div data-automation-id="workExperience-430--startDate-dateSectionYear">
+        <input type="text" id="workExperience-430--startDate-dateSectionYear-input" data-automation-id="dateSectionYear-input" />
+      </div>
+    </div>
+  </div>
+  <div data-automation-id="formField-endDate">
+    <div data-automation-id="dateInputWrapper">
+      <div data-automation-id="workExperience-430--endDate-dateSectionMonth">
+        <input type="text" id="workExperience-430--endDate-dateSectionMonth-input" data-automation-id="dateSectionMonth-input" />
+      </div>
+      <div data-automation-id="workExperience-430--endDate-dateSectionYear">
+        <input type="text" id="workExperience-430--endDate-dateSectionYear-input" data-automation-id="dateSectionYear-input" />
+      </div>
+    </div>
+  </div>
+  <div data-automation-id="formField-roleDescription">
+    <label for="workExperience-430--roleDescription">Role Description</label>
+    <textarea id="workExperience-430--roleDescription"></textarea>
+  </div>
+
+  <h3>Education</h3>
+  <div data-automation-id="formField-school">
+    <label for="education-439--school">School or University*</label>
+    <div data-automation-id="multiSelectContainer">
+      <div data-automation-id="multiselectInputContainer">
+        <input type="text" id="education-439--school" />
+      </div>
+    </div>
+  </div>
+  <div data-automation-id="formField-degree">
+    <label for="education-439--degree">Degree*</label>
+    <button id="education-439--degree" name="degree" aria-haspopup="listbox" aria-controls="degree-list" aria-expanded="false">Select One</button>
+    <div id="degree-list" role="listbox">
+      <div role="option">Bachelor's Degree</div>
+      <div role="option">Master's Degree</div>
+    </div>
+  </div>
+  <div data-automation-id="formField-fieldOfStudy">
+    <label for="education-439--fieldOfStudy">Field of Study</label>
+    <div data-automation-id="multiSelectContainer">
+      <div data-automation-id="multiselectInputContainer">
+        <input type="text" id="education-439--fieldOfStudy" />
+      </div>
+    </div>
+  </div>
+
+  <h3>Certifications</h3>
+  <div data-automation-id="formField-certification">
+    <label for="certification-440--certification">Certification*</label>
+    <div data-automation-id="multiSelectContainer">
+      <div data-automation-id="multiselectInputContainer">
+        <input type="text" id="certification-440--certification" />
+      </div>
+    </div>
+  </div>
+  <div data-automation-id="formField-certificationNumber">
+    <label for="certification-440--certificationNumber">Certification Number</label>
+    <input type="text" id="certification-440--certificationNumber" name="certificationNumber" />
+  </div>
+
+  <!-- An attachment with no heading of its own. Identical in every attribute
+       to the Resume/CV input further down. -->
+  <div data-automation-id="formField-">
+    <div data-automation-id="attachments-FileUpload">
+      <input type="file" data-automation-id="file-upload-input-ref" />
+    </div>
+  </div>
+
+  <h3>Skills</h3>
+  <div data-automation-id="formField-skills">
+    <label for="skills--skills">Type to Add Skills</label>
+    <div data-automation-id="multiSelectContainer">
+      <div data-automation-id="multiselectInputContainer">
+        <input type="text" id="skills--skills" />
+      </div>
+    </div>
+  </div>
+
+  <h3>Resume/CV</h3>
+  <div data-automation-id="formField-">
+    <div data-automation-id="attachments-FileUpload">
+      <input type="file" data-automation-id="file-upload-input-ref" />
+    </div>
+  </div>
+
+  <h3>Websites</h3>
+  <div data-automation-id="formField-url">
+    <label for="webAddress-447--url">URL*</label>
+    <input type="text" id="webAddress-447--url" name="url" />
+  </div>
+
+  <div data-automation-id="formField-linkedInAccount">
+    <label for="socialNetworkAccounts--linkedInAccount">LinkedIn</label>
+    <input type="text" id="socialNetworkAccounts--linkedInAccount" name="linkedInAccount" />
+  </div>
+
+</div>
+</div>

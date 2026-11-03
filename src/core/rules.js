@@ -172,7 +172,12 @@ export const RULE_OVERRIDES = {
     context: ["employment", "work experience", "experience", "work history"],
     veto: ["degree", "school", "reference", "position applied", "position you are applying"],
   },
-  "work.location": { context: ["employment", "work experience", "work history"], veto: ["your location", "current location"] },
+  // "your location" is deliberately absent: "your" is a stop word, so the
+  // phrase tokenised to just ["location"] and vetoed every field labelled
+  // "Location" — which is the only label this field ever has. work.location
+  // and education.location could not be filled at all. "current location"
+  // survives tokenising intact and does the work that was intended.
+  "work.location": { context: ["employment", "work experience", "work history"], veto: ["current location"] },
   "work.startDate": { aliases: ["from", "start"], context: ["employment", "work experience", "work history"] },
   "work.endDate": { aliases: ["to", "end", "until"], context: ["employment", "work experience", "work history"] },
   "work.currentlyWorking": { aliases: ["currently work here", "i currently work here", "present", "current role"] },
@@ -211,7 +216,7 @@ export const RULE_OVERRIDES = {
   },
   "education.currentlyAttending": { aliases: ["currently attending", "currently enrolled", "still studying"] },
   "education.honors": { aliases: ["honors", "honours", "awards", "distinctions"], context: ["education"] },
-  "education.location": { context: ["education", "academic"], veto: ["your location", "current location"] },
+  "education.location": { context: ["education", "academic"], veto: ["current location"] },
 
   // --- Skills --------------------------------------------------------------
   "skills.skills": { aliases: ["skills", "key skills", "technical skills", "competencies"] },
