@@ -716,7 +716,25 @@ globalThis.JobFill = globalThis.JobFill || {};
       // For a grouped control the question outranks the individual option's
       // label, which would otherwise be an answer like "Yes".
       const question = isGrouped ? groupQuestionFor(element, doc) : "";
-      const resolved = question ? { text: question, source: "group-question" } : resolveLabel(element);
+      let resolved = question ? { text: question, source: "group-question" } : resolveLabel(element);
+
+      const { sectionText, sectionIndex } = sectionContextFor(element, doc);
+
+      // Last resort: the heading the field sits under.
+      //
+      // For a lone control with no label of any kind, the heading above it *is*
+      // its label — which is the only thing that identifies Workday's resume
+      // upload. That step renders two file inputs identical in every attribute,
+      // both `file-upload-input-ref` with no name, id or label; one sits under
+      // "Resume/CV" and the other under "Certifications", and nothing else
+      // tells them apart.
+      //
+      // Ranked below every other strategy because a heading covers a whole
+      // block rather than one field, so it is only right when the field has
+      // nothing of its own.
+      if (!resolved.text && sectionText && !isJunkLabel(sectionText) && sectionText.length <= PROSE_LIMIT) {
+        resolved = { text: sectionText, source: "section" };
+      }
 
       // Resolved before the id is issued, because a honeypot's own label is
       // often the only thing that gives it away.
@@ -724,8 +742,6 @@ globalThis.JobFill = globalThis.JobFill || {};
 
       const fieldId = `jf${counter++}`;
       elements.set(fieldId, element);
-
-      const { sectionText, sectionIndex } = sectionContextFor(element, doc);
 
       descriptors.push({
         fieldId,

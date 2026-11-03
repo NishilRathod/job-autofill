@@ -172,5 +172,11 @@ application is discarded unread — a silent failure that looks like success. `i
 drops controls clipped to nothing, sized to a pixel or parked off-screen, exempting
 file, checkbox and radio inputs because those are legitimately zero-sized.
 
+**Adapter exclusions.** A site may render a control that cannot be filled correctly
+rather than one that merely risks a wrong guess — a Workday date is three boxes, and the
+month box is named `endDate`, so it scores on its own name and would receive the whole
+date. Hints can only add a mapping, so adapters carry an `exclude` list for these; the
+field is reported as skipped so the preview says it was left for the user.
+
 **Credentials.** Password inputs are never collected. These flows sit behind account
 creation, so one genuinely appears mid-application, and nothing here should go near it.

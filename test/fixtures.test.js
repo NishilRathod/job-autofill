@@ -767,14 +767,20 @@ describe("Workday My Experience, from a signed-in form", () => {
     expect(parts.every((d) => !result.fills.some((f) => f.fieldId === d.fieldId))).toBe(true);
   });
 
-  it("does not guess between two identical file inputs", () => {
+  it("tells two identical file inputs apart by their heading", () => {
     // Both are file-upload-input-ref inside attachments-FileUpload/formField-,
-    // with no name, id or label. Only the heading above them differs, and a
-    // heading is sectionText, which an adapter cannot see. Attaching to the
-    // wrong one would look like success and submit without a resume.
+    // with no name, id or label — identical in every attribute an adapter can
+    // read. The heading above each is the only thing that distinguishes them,
+    // so it serves as the label of last resort.
     const files = result.descriptors.filter((d) => d.type === "file");
     expect(files).toHaveLength(2);
-    expect(result.fills.some((f) => f.path === "documents.resume")).toBe(false);
+    expect(files.map((d) => d.label)).toEqual(["Certifications", "Resume/CV"]);
+    expect(files.map((d) => d.labelSource)).toEqual(["section", "section"]);
+
+    const resume = files.find((d) => d.label === "Resume/CV");
+    const other = files.find((d) => d.label === "Certifications");
+    expect(result.fills.find((f) => f.fieldId === resume.fieldId)?.path).toBe("documents.resume");
+    expect(result.fills.some((f) => f.fieldId === other.fieldId)).toBe(false);
   });
 });
 
@@ -817,5 +823,58 @@ describe("a label belongs to one field", () => {
     `);
     const upload = descriptors.find((d) => d.type === "file");
     expect(upload.label).toBe("");
+  });
+});
+
+describe("a section heading as the label of last resort", () => {
+  // Workday's resume upload has no label, name or id — nothing but the heading
+  // above it. Ranked below every other strategy, because a heading covers a
+  // block rather than one field, so it is only right when the field has
+  // nothing of its own.
+  it("prefers a real label to the heading above it", () => {
+    const { descriptors } = planFor(`
+      <h3>Emergency Contact</h3>
+      <label for="e">Email</label><input id="e" name="e" />
+    `);
+    expect(descriptors[0].label).toBe("Email");
+    expect(descriptors[0].labelSource).toBe("for");
+  });
+
+  it("will not answer a heading that names somebody else", () => {
+    // The vetoes are what make this fallback safe to have at all.
+    const result = planFor(`<h3>Emergency Contact</h3><input name="a" /><input name="b" />`);
+    expect(result.descriptors.map((d) => d.label)).toEqual(["Emergency Contact", "Emergency Contact"]);
+    expect(result.fills).toEqual([]);
+  });
+
+  it.each([
+    ["Confirm Email", `<h3>Confirm Email</h3><input name="a" />`],
+    ["Reference Email", `<h3>Reference Email</h3><input name="a" />`],
+    ["Supervisor Phone", `<h3>Supervisor Phone</h3><input name="a" />`],
+  ])("will not answer a heading of %s", (_label, html) => {
+    expect(planFor(html).fills).toEqual([]);
+  });
+
+  it("gives one heading to one field, not to all of them", () => {
+    const result = planFor(`<h3>Email</h3><input name="a" /><input name="b" /><input name="c" />`);
+    expect(result.fills).toHaveLength(1);
+    expect(result.fills[0].path).toBe("identity.email");
+    expect(result.unmatched).toHaveLength(2);
+  });
+
+  it("does not take a paragraph of instructions for a label", () => {
+    const result = planFor(`
+      <h3>Please complete every field below before continuing to the next step of this application</h3>
+      <input name="a" />
+    `);
+    expect(result.fills).toEqual([]);
+  });
+
+  it("does not let the heading score twice", () => {
+    // Used as the label, the heading must not also count as context, or a rule
+    // earns a partial label match and a context bonus from the same few words.
+    const { descriptors } = planFor(`<h3>Work Experience</h3><input name="a" />`);
+    expect(descriptors[0].labelSource).toBe("section");
+    expect(descriptors[0].sectionText).toBe("Work Experience");
   });
 });

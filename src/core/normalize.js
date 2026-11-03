@@ -263,7 +263,11 @@ export function descriptorTokens(descriptor) {
   const name = tokenize(`${descriptor.name ?? ""} ${descriptor.id ?? ""} ${descriptor.automationId ?? ""}`);
   const placeholder = tokenize(descriptor.placeholder ?? "");
   const ancestor = tokenize((descriptor.ancestorIds ?? []).join(" "));
-  const context = tokenize(descriptor.sectionText ?? "");
+
+  // One text, one role. When the collector fell back to the section heading for
+  // the label, that heading must not also count as context — otherwise a rule
+  // earns a partial label match and a context bonus from the same few words.
+  const context = descriptor.labelSource === "section" ? [] : tokenize(descriptor.sectionText ?? "");
 
   return {
     label,

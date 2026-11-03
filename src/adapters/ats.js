@@ -133,13 +133,13 @@ export const ATS_ADAPTERS = [
     "\\bwebAddress\\b": "links.website",
     "\\blinkedInAccount\\b": "links.linkedin",
 
-    // Not mapped: the resume. The step carries two file inputs identical in
-    // every attribute — both `file-upload-input-ref` inside
-    // `attachments-FileUpload` / `formField-`, with no name, id or label. The
-    // only thing distinguishing the Resume/CV one is the heading above it, and
-    // a heading is `sectionText`, which neither selectors nor questions can
-    // see. Matching `file-upload-input-ref` would be a coin toss between the
-    // resume slot and some other attachment.
+    // The resume is deliberately not listed. This step renders two file inputs
+    // identical in every attribute — both `file-upload-input-ref` inside
+    // `attachments-FileUpload` / `formField-`, with no name, id or label — so
+    // matching the attribute would be a coin toss between the resume slot and
+    // some other attachment. The heading above each is the only thing that
+    // tells them apart, and the collector now reads a heading as the label of
+    // last resort, which resolves it without an adapter entry.
   },
 
   // A date on My Experience is three boxes — month, day, year — and the month
