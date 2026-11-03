@@ -103,9 +103,21 @@ export const ATS_ADAPTERS = [
     "candidateIsPreviousWorker": "screening.previouslyEmployedHere",
     "source--source|howDidYouHear": "screening.howDidYouHearAboutUs",
 
-    // Still unverified — these steps sit further into the flow than the dump
-    // this adapter was rebuilt from. Written to the same `<group>--<field>`
-    // convention the verified fields follow.
+    // Still unverified: the My Experience step sits further into the flow than
+    // the dump this adapter was rebuilt from. Written to the same
+    // `<group>--<field>` convention the verified fields follow.
+    //
+    // These fail safe, which is why they are allowed to stand on a guess. If
+    // the convention holds they fire correctly; if it does not they match
+    // nothing and the generic heuristics handle those fields as they did
+    // before this adapter existed. Either way nothing crosses over — no
+    // education field can take a work value — because each pattern names its
+    // own group. The exposure is a missed field, never a wrong one.
+    //
+    // Known gap while they are unverified: a date column headed just "To" is
+    // unmatchable on label alone, because "to" is a stop word. It resolves
+    // when the control carries an `endDate`-ish attribute, as the one in
+    // test/fixtures/workday.html does.
     "workExperience[-_]+jobTitle": "work.title",
     "workExperience[-_]+companyName|workExperience[-_]+company": "work.company",
     "education[-_]+schoolName|education[-_]+school": "education.school",
